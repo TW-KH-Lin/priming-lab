@@ -1,0 +1,21 @@
+"use strict";
+const assert=require("node:assert/strict");require("../dist/sim-core.js");const C=globalThis.PrimingCore;
+const close=(a,b,t=1e-8)=>assert.ok(Math.abs(a-b)<=t,`${a} != ${b}`);
+const jp=C.resolvePreset("jp-control","python");
+const cond=C.conditioningEstimator(jp,{preFreq:10,prePulses:4,testFreq:200,testPulses:40,window:10});
+[.5480393105,.7748387619,.8125811017,.7519109906,.6663685674].forEach((v,i)=>close(cond.test[i].releaseNorm,v));
+close(cond.fit.slope,-.2787010873);close(cond.pFusionEstimate,.2787010873);
+const pnas=C.eq31(C.resolvePreset("pnas2022","publication"),{frequency:10,pulses:40});
+close(pnas.ppr,.6759545170);close(pnas.dm,.2932872628);close(pnas.estimate,.4585250356);
+const train=C.simulateTrain(200,25,jp),intervals=[.125,.25,.5,1,2,4,8,16];
+const last=C.simulateRecovery(train,intervals,jp,"last").points.map(x=>x.recovered);
+[-.0121783305,.0593277107,.1474935959,.2421064211,.3804929516,.6214811069,.8794942123,.9891681778].forEach((v,i)=>close(last[i],v));
+const last5=C.simulateRecovery(train,intervals,jp,"last5").points.map(x=>x.recovered);
+[-.0263974698,.0461130924,.1355175370,.2314594886,.3717900811,.6161636517,.8778013400,.9890160118].forEach((v,i)=>close(last5[i],v));
+const pub24=C.resolvePreset("pnas2024","publication"),py24=C.resolvePreset("pnas2024","python");
+assert.equal(pub24.pFusionMode,"constant");assert.equal(pub24.caApScaleWithY,false);assert.equal(py24.pFusionMode,"dynamic");
+assert.equal(C.resolvePreset("jp-iono","publication").caRestReference,5e-8);assert.equal(C.resolvePreset("jp-iono","python").caRestReference,1.3e-7);
+for(const key of Object.keys(C.PRESETS)){const p=C.resolvePreset(key,"publication"),r=C.simulateTrain(100,12,p),inv=C.invariants(r,p);assert.ok(inv.massError<1e-8);assert.ok(inv.minPool>=0);assert.ok(inv.pFusionBounded)}
+assert.ok(Number.isFinite(C.eq31(jp,{frequency:200,pulses:2}).estimate));
+assert.throws(()=>C.simulateTrain(0,2,jp),RangeError);assert.throws(()=>C.simulateTrain(200,2,{...jp,caTauLocal:0}),RangeError);
+console.log("Review V2 golden checks passed");

@@ -4,23 +4,25 @@ PrimingLab is a browser-based implementation of a sequential vesicle priming and
 
 ## First release
 
-- Four priming-model branches (ES ⇄ LS ⇄ TS, optional TSL and ERS)
+- Four priming-model branches (`ES ⇄ LS ⇄ TS`, optional `TSL` and `ERS`)
 - PNAS 2022 Figure 4 and JP286282 example presets
 - Editable release, priming, calcium, facilitation, and depression parameters
 - Multi-frequency simulation with fixed-step RK4 integration
 - Normalized release, pool occupancy, and release-probability plots
+- Recovery probes after configurable conditioning trains
+- Conditional-AP P-fusion estimation from test-EPSC changes across selectable preconditioning counts
 - CSV export
 - Responsive desktop and mobile interface
 
 ## Run locally
 
-Serve the repository with any static web server, for example:
+Serve the `dist` directory with any static web server, for example:
 
 ```bash
-python3 -m http.server 4173
+python3 -m http.server 4173 --directory dist
 ```
 
-Then open http://127.0.0.1:4173.
+Then open `http://127.0.0.1:4173`.
 
 ## Scientific scope
 
