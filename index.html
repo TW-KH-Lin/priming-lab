@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive sequential vesicle priming and short-term plasticity simulator.">
+  <title>PrimingLab — Sequential priming simulator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav shell" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="PrimingLab home"><span class="brand-mark">P</span> PrimingLab</a>
+      <div class="nav-links">
+        <a href="#simulator">Simulator</a>
+        <a href="#model">Model</a>
+        <a href="#about">About</a>
+      </div>
+    </nav>
+    <div class="hero-content shell" id="top">
+      <div>
+        <p class="eyebrow">Open, browser-based research tool</p>
+        <h1>Explore vesicle priming.<br><em>One pulse at a time.</em></h1>
+        <p class="lede">Simulate sequential priming, transient labile states, release probability, and short-term plasticity without installing Python or uploading data.</p>
+        <a class="button primary" href="#simulator">Open simulator <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="model-card" aria-label="Priming model state diagram">
+        <div class="model-label">STATE MODEL</div>
+        <svg viewBox="0 0 540 250" role="img" aria-labelledby="scheme-title scheme-desc">
+          <title id="scheme-title">Sequential priming state diagram</title>
+          <desc id="scheme-desc">Empty sites transition to loosely primed and tightly primed states. A transient labile branch and refractory state are optional.</desc>
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#475569"/></marker>
+          </defs>
+          <g class="scheme-lines" marker-end="url(#arrow)">
+            <path d="M96 84 H198"/><path d="M198 105 H96"/><path d="M302 84 H404"/><path d="M404 105 H302"/>
+            <path d="M252 126 V188"/><path d="M455 126 V188"/>
+          </g>
+          <g class="scheme-nodes">
+            <g><rect x="20" y="53" width="76" height="72" rx="18"/><text x="58" y="84">ES</text><text class="node-sub" x="58" y="105">empty</text></g>
+            <g><rect x="201" y="53" width="101" height="72" rx="18"/><text x="252" y="84">LS</text><text class="node-sub" x="252" y="105">loosely primed</text></g>
+            <g><rect x="407" y="53" width="96" height="72" rx="18"/><text x="455" y="84">TS</text><text class="node-sub" x="455" y="105">release-ready</text></g>
+            <g class="accent"><rect x="201" y="190" width="101" height="48" rx="16"/><text x="252" y="220">TSL</text></g>
+            <g class="muted"><rect x="407" y="190" width="96" height="48" rx="16"/><text x="455" y="220">ERS</text></g>
+          </g>
+        </svg>
+        <div class="model-meta"><span><i class="dot cyan"></i> Ca²⁺-dependent priming</span><span><i class="dot coral"></i> AP-triggered transitions</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="simulator shell" id="simulator">
+      <div class="section-heading">
+        <div><p class="eyebrow">Interactive workspace</p><h2>Run a simulation</h2></div>
+        <div class="status-pill" id="status" aria-live="polite"><span></span> Ready</div>
+      </div>
+
+      <div class="workspace">
+        <aside class="controls" aria-label="Simulation controls">
+          <div class="control-section">
+            <label for="preset">Publication preset</label>
+            <select id="preset">
+              <option value="pnas2022">PNAS 2022 · Figure 4</option>
+              <option value="jp-control">JP286282 · Ionomycin control</option>
+              <option value="jp-iono">JP286282 · +2.5 µM ionomycin</option>
+              <option value="custom">Custom parameters</option>
+            </select>
+          </div>
+          <div class="control-grid">
+            <div><label for="modelVariant">Model variant</label><select id="modelVariant"><option value="1">1 · Basic</option><option value="2">2 · TSL + ERS</option><option value="3" selected>3 · TSL</option><option value="4">4 · TSL + ERS alias</option></select></div>
+            <div><label for="pulses">Pulses</label><input id="pulses" type="number" min="2" max="200" step="1" value="40"></div>
+          </div>
+          <div class="control-section">
+            <label for="frequencies">Frequencies (Hz)</label>
+            <input id="frequencies" type="text" value="5, 20, 50, 100, 200" inputmode="decimal">
+            <p class="hint">Comma-separated; up to 8 frequencies.</p>
+          </div>
+
+          <details open>
+            <summary>Core parameters <span>10</span></summary>
+            <div class="parameter-list">
+              <label><span>Release sites <b>N</b></span><input data-param="nSites" type="number" min="1" step="1"></label>
+              <label><span>Initial release probability <b>p₀</b></span><input data-param="pRel0" type="number" min="0" max="1" step="0.001"></label>
+              <label><span>Priming 1 forward <b>k₁</b></span><input data-param="kf1" type="number" min="0" step="0.001"></label>
+              <label><span>Priming 1 backward <b>b₁</b></span><input data-param="kb1" type="number" min="0" step="0.001"></label>
+              <label><span>Ca sensitivity 1 <b>σ₁</b></span><input data-param="slope1" type="number" min="0" step="1000"></label>
+              <label><span>Priming 2 forward <b>k₂</b></span><input data-param="kf2" type="number" min="0" step="0.001"></label>
+              <label><span>Priming 2 backward <b>b₂</b></span><input data-param="kb2" type="number" min="0" step="0.001"></label>
+              <label><span>Ca sensitivity 2 <b>σ₂</b></span><input data-param="slope2" type="number" min="0" step="1000"></label>
+              <label><span>TSL fraction <b>κ</b></span><input data-param="fractionTsl" type="number" min="0" max="1" step="0.01"></label>
+              <label><span>TSL lifetime <b>τ</b> (s)</span><input data-param="tauTsl" type="number" min="0.001" step="0.001"></label>
+            </div>
+          </details>
+          <details>
+            <summary>Calcium & modulation <span>8</span></summary>
+            <div class="parameter-list">
+              <label><span>Resting Ca (M)</span><input data-param="caRest" type="number" min="0" step="1e-9"></label>
+              <label><span>Ca amplitude (M)</span><input data-param="caAmpl" type="number" min="0" step="1e-9"></label>
+              <label><span>Ca decay τ (s)</span><input data-param="caTau" type="number" min="0.001" step="0.001"></label>
+              <label><span>ERS recovery (s⁻¹)</span><input data-param="kRefract" type="number" min="0" step="0.1"></label>
+              <label><span>Facilitation increment</span><input data-param="yInc" type="number" min="0" step="0.01"></label>
+              <label><span>Facilitation maximum</span><input data-param="yMax" type="number" min="1" step="0.01"></label>
+              <label><span>Depression decrement</span><input data-param="zDec" type="number" min="0" step="0.01"></label>
+              <label><span>Release exponent</span><input data-param="yPower" type="number" min="0" step="0.1"></label>
+            </div>
+          </details>
+          <div class="actions">
+            <button class="button primary" id="runButton">Run simulation</button>
+            <button class="button secondary" id="exportButton" disabled>Export CSV</button>
+          </div>
+          <p class="privacy"><span aria-hidden="true">◎</span> Computation stays in your browser.</p>
+        </aside>
+
+        <div class="results">
+          <div class="metrics" id="metrics">
+            <article><span>First response</span><strong>—</strong><small>vesicles</small></article>
+            <article><span>Paired-pulse ratio</span><strong>—</strong><small>P2 / P1</small></article>
+            <article><span>Steady-state ratio</span><strong>—</strong><small>last 5 / P1</small></article>
+          </div>
+          <article class="chart-card">
+            <div class="chart-title"><div><p>Normalized release</p><span>Response / first response</span></div><div class="legend" id="releaseLegend"></div></div>
+            <svg class="chart" id="releaseChart" viewBox="0 0 900 390" role="img" aria-label="Normalized release across pulses"></svg>
+          </article>
+          <div class="two-up">
+            <article class="chart-card compact">
+              <div class="chart-title"><div><p>Site occupancy</p><span>After each pulse</span></div><select id="detailFrequency" aria-label="Frequency shown in detail"></select></div>
+              <svg class="chart" id="poolChart" viewBox="0 0 600 330" role="img" aria-label="Priming state occupancy"></svg>
+            </article>
+            <article class="chart-card compact">
+              <div class="chart-title"><div><p>Release probability</p><span>Facilitation × depression</span></div></div>
+              <svg class="chart" id="probChart" viewBox="0 0 600 330" role="img" aria-label="Release probability across pulses"></svg>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="model-section" id="model">
+      <div class="shell">
+        <p class="eyebrow">Model anatomy</p><h2>A transparent implementation</h2>
+        <div class="explain-grid">
+          <article><span>01</span><h3>Prime</h3><p>Calcium accelerates two reversible priming steps from empty sites through loosely primed to tightly primed vesicles.</p></article>
+          <article><span>02</span><h3>Release</h3><p>Each action potential releases a fraction of TS and optional TSL pools according to a dynamic release probability.</p></article>
+          <article><span>03</span><h3>Recover</h3><p>Released sites return directly or pass through a refractory state, while calcium and modulation variables relax between pulses.</p></article>
+        </div>
+        <div class="variant-table" role="region" aria-label="Model variant comparison" tabindex="0">
+          <table><thead><tr><th>Variant</th><th>Core states</th><th>TSL branch</th><th>ERS branch</th><th>Best used for</th></tr></thead><tbody>
+            <tr><td><b>Model 1</b></td><td>ES ⇄ LS ⇄ TS</td><td>—</td><td>—</td><td>Minimal sequential priming</td></tr>
+            <tr><td><b>Model 2</b></td><td>ES ⇄ LS ⇄ TS</td><td>Included</td><td>Included</td><td>Plugging / refractory recovery</td></tr>
+            <tr><td><b>Model 3</b></td><td>ES ⇄ LS ⇄ TS</td><td>Included</td><td>—</td><td>PNAS Figure 4–style simulations</td></tr>
+            <tr><td><b>Model 4</b></td><td>ES ⇄ LS ⇄ TS</td><td>Included</td><td>Included</td><td>Compatibility with model 2</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="about shell" id="about">
+      <div><p class="eyebrow">Reproducible by design</p><h2>Built for exploration,<br>teaching, and comparison.</h2></div>
+      <div><p>This web implementation mirrors the homogeneous, fixed-step sequential priming equations in the accompanying Python model. Presets make published parameter sets easy to explore, while every core parameter remains editable.</p><p class="note"><strong>Research-use notice:</strong> This is a simulation and educational tool—not medical software. Confirm quantitative results against the reference Python implementation before publication.</p><a href="https://doi.org/10.1073/pnas.2207987119" target="_blank" rel="noreferrer">PNAS 2022 reference ↗</a></div>
+    </section>
+  </main>
+  <footer><div class="shell"><span>PrimingLab</span><span>Sequential priming · Runs locally · No data collection</span></div></footer>
+  <script src="app.js"></script>
+</body>
+</html>
