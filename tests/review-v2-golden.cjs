@@ -1,5 +1,7 @@
 "use strict";
-const assert=require("node:assert/strict");require("../dist/sim-core.js");const C=globalThis.PrimingCore;
+const assert=require("node:assert/strict"),fs=require("node:fs");require("../dist/sim-core.js");const C=globalThis.PrimingCore;
+const appSource=fs.readFileSync(require.resolve("../dist/app.js"),"utf8");
+assert.match(appSource,/APP_VERSION="44\.0\.0"/);assert.match(appSource,/Measured mutant \/ control ratios/);assert.match(appSource,/K2\/B2 fitted to first EPSC/);
 const pdbu=C.resolvePreset("jp-pdbu","publication");
 assert.equal(pdbu.nSites,3297,"PDBu Ntotal must match Table 2");
 assert.equal(pdbu.pRel0,.29,"PDBu pFusion must match Table 2");
