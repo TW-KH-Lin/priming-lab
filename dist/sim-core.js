@@ -8,7 +8,7 @@
   const BASE={
     frequencies:[5,20,50,100,200],pulses:40,nSites:2639,pRel0:.393,
     kf1:.402517,kb1:.18472,slope1:1.23939e7,kf2:.207254,kb2:.248014,slope2:1.27727e7,
-    tauTsl:.09,fractionTsl:.16,kHalf1:2.8e-7,kRefract:5000,useMM:true,model:3,
+    tauTsl:.09,fractionTsl:.16,kHalf1:2.8e-7,kRefract:5000,useMM:true,model:2,
     caRestActual:5e-8,caRestReference:5e-8,useMultiCa:false,caTau:.06,caAmpl:1.1e-7,
     caTauFast:.06,caTauSlow:.23,caFracSlow:.15,caAmplGlobal:4.54e-7,caTauLocal:.00025,caAmplLocal:3e-5,
     caApScaleWithY:true,yInc:.39,zDec:.4,yMax:1.32,zMin:.75,tauY:.014,tauZ:3,yPower:4.5,
@@ -18,10 +18,10 @@
   const PRESETS={
     pnas2022:{label:"PNAS 2022 · Figure 4",...BASE},
     pnas2024:{label:"PNAS 2024 · PC-FSIN mean",...BASE,nSites:25.5,pRel0:.6,kf1:.61,kb1:.38,slope1:1.06430155210643e7,kf2:.24,kb2:.3,slope2:2.2172949002217297e7,tauTsl:.0725,fractionTsl:.18,kHalf1:3.3e-7,caTau:.1025,source:"10.1073/pnas.2322550121"},
-    "jp-control":{label:"JP286282 · ionomycin control",...BASE,nSites:2622,pRel0:.22,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.1,kRefract:2.6,useMM:false,model:2,useMultiCa:true,caApScaleWithY:false,yMax:1.31,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
-    "jp-iono":{label:"JP286282 · +2.5 µM ionomycin",...BASE,nSites:2622,pRel0:.3,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.15,kRefract:4.2,useMM:false,model:2,useMultiCa:true,caRestActual:1.3e-7,caRestReference:5e-8,caApScaleWithY:false,yMax:1.16,zMin:1,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
-    "jp-extca":{label:"JP286282 · 2.0 mM external Ca",...BASE,nSites:2910,pRel0:.42,kf1:.374015,kb1:.215,slope1:2.181e6,kf2:.191,kb2:.264,slope2:1.042e6,fractionTsl:.1,kRefract:2.9,useMM:false,model:2,useMultiCa:true,caRestActual:9e-8,caRestReference:5e-8,caAmplGlobal:5.45e-7,caAmplLocal:3.6e-5,caApScaleWithY:false,yMax:1.28,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
-    sciadv:{label:"Science Advances 2026 · WT/−",...BASE,nSites:3300,pRel0:.341,kf1:.5,kb1:.231,slope1:8.59e5,kf2:.1357,kb2:.3514,slope2:1.22e6,tauTsl:.07,fractionTsl:.08,kRefract:3.3,useMM:false,model:2,useMultiCa:true,caTauFast:.05,caTauSlow:.24,caFracSlow:.12,caAmplGlobal:3.9e-7,caTauLocal:.00036,caAmplLocal:3.3e-5,caApScaleWithY:false,yInc:.36,yMax:1.22,zMin:.77,tauY:.014,yPower:4.5,odeStep:.0001,source:"10.1126/sciadv.aea0449"}
+    "jp-control":{label:"JP286282 · ionomycin control",...BASE,nSites:2622,pRel0:.22,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.1,kRefract:2.6,useMM:false,model:3,useMultiCa:true,caApScaleWithY:false,yMax:1.31,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
+    "jp-iono":{label:"JP286282 · +2.5 µM ionomycin",...BASE,nSites:2622,pRel0:.3,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.15,kRefract:4.2,useMM:false,model:3,useMultiCa:true,caRestActual:1.3e-7,caRestReference:5e-8,caApScaleWithY:false,yMax:1.16,zMin:1,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
+    "jp-extca":{label:"JP286282 · 2.0 mM external Ca",...BASE,nSites:2910,pRel0:.42,kf1:.374015,kb1:.215,slope1:2.181e6,kf2:.191,kb2:.264,slope2:1.042e6,fractionTsl:.1,kRefract:2.9,useMM:false,model:3,useMultiCa:true,caRestActual:9e-8,caRestReference:5e-8,caAmplGlobal:5.45e-7,caAmplLocal:3.6e-5,caApScaleWithY:false,yMax:1.28,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
+    sciadv:{label:"Science Advances 2026 · WT/−",...BASE,nSites:3300,pRel0:.341,kf1:.5,kb1:.231,slope1:8.59e5,kf2:.1357,kb2:.3514,slope2:1.22e6,tauTsl:.07,fractionTsl:.08,kRefract:3.3,useMM:false,model:3,useMultiCa:true,caTauFast:.05,caTauSlow:.24,caFracSlow:.12,caAmplGlobal:3.9e-7,caTauLocal:.00036,caAmplLocal:3.3e-5,caApScaleWithY:false,yInc:.36,yMax:1.22,zMin:.77,tauY:.014,yPower:4.5,odeStep:.0001,source:"10.1126/sciadv.aea0449"}
   };
 
   function resolvePreset(key,target="publication"){
@@ -50,7 +50,7 @@
   function deriv(s,p){
     const [k1,k2]=rates(effectiveCa(s,p),p),b3=1/Math.max(p.tauTsl,1e-12);let d;
     if(p.model===1)d={ts:k2*s.ls-p.kb2*s.ts,es:-k1*s.es+p.kb1*s.ls,ls:k1*s.es+p.kb2*s.ts-(p.kb1+k2)*s.ls,tsl:0,ers:0};
-    else if(p.model===3)d={ts:k2*s.ls-p.kb2*s.ts,es:-k1*s.es+p.kb1*s.ls,ls:k1*s.es+p.kb2*s.ts-(p.kb1+k2)*s.ls+b3*s.tsl,tsl:-b3*s.tsl,ers:0};
+    else if(p.model===2)d={ts:k2*s.ls-p.kb2*s.ts,es:-k1*s.es+p.kb1*s.ls,ls:k1*s.es+p.kb2*s.ts-(p.kb1+k2)*s.ls+b3*s.tsl,tsl:-b3*s.tsl,ers:0};
     else d={ts:k2*s.ls-p.kb2*s.ts,es:-k1*s.es+p.kb1*s.ls+p.kRefract*s.ers,ls:k1*s.es+p.kb2*s.ts-(p.kb1+k2)*s.ls+b3*s.tsl,tsl:-b3*s.tsl,ers:-p.kRefract*s.ers};
     d.caFast=-s.caFast/Math.max(p.useMultiCa?p.caTauFast:p.caTau,1e-12);
     d.caSlow=p.useMultiCa?-s.caSlow/Math.max(p.caTauSlow,1e-12):0;
@@ -70,7 +70,7 @@
   function integrate(s,duration,p){
     if(!Number.isFinite(duration)||duration<0)throw new RangeError("Integration duration must be finite and non-negative");
     if(duration===0)return clone(s);let hTarget=Math.max(p.odeStep||.001,1e-9);
-    if(p.model===2||p.model===4)hTarget=Math.min(hTarget,.2/Math.max(p.kRefract,1e-12));
+    if(p.model===3)hTarget=Math.min(hTarget,.2/Math.max(p.kRefract,1e-12));
     if(p.useMultiCa){if(!Number.isFinite(p.caTauLocal)||p.caTauLocal<=0)throw new RangeError("Local calcium time constant must be positive");hTarget=Math.min(hTarget,.25*p.caTauLocal)}
     const n=Math.max(1,Math.ceil(duration/hTarget)),h=duration/n;let out=clone(s);for(let i=0;i<n;i++)out=rk4(out,h,p);return out;
   }
@@ -78,7 +78,7 @@
   function applyAP(s,y,z,p){
     const pf=fusion(y,z,p),ts=s.ts,tsl=s.tsl,ls=s.ls;let release;
     if(p.model===1){release=ts*pf;s.ts=ts*(1-pf);s.es+=release}
-    else{release=(ts+tsl)*pf;s.ts=ts*(1-pf);s.ls=ls*(1-p.fractionTsl);s.tsl=tsl*(1-pf)+ls*p.fractionTsl;if(p.model===3)s.es+=release;else s.ers+=release}
+    else{release=(ts+tsl)*pf;s.ts=ts*(1-pf);s.ls=ls*(1-p.fractionTsl);s.tsl=tsl*(1-pf)+ls*p.fractionTsl;if(p.model===2)s.es+=release;else s.ers+=release}
     const scale=p.caApScaleWithY?y:1;
     if(p.useMultiCa){s.caFast+=scale*p.caAmplGlobal*(1-p.caFracSlow);s.caSlow+=scale*p.caAmplGlobal*p.caFracSlow;s.caLocal+=scale*p.caAmplLocal}else s.caFast+=scale*p.caAmpl;
     normalize(s,p);return {state:s,release,pFusion:pf,yPost:y+p.yInc*(p.yMax-y),zPost:z-p.zDec*(z-p.zMin)};

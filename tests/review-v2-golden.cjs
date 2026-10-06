@@ -15,6 +15,9 @@ const last5=C.simulateRecovery(train,intervals,jp,"last5").points.map(x=>x.recov
 const pub24=C.resolvePreset("pnas2024","publication"),py24=C.resolvePreset("pnas2024","python");
 assert.equal(pub24.pFusionMode,"constant");assert.equal(pub24.caApScaleWithY,false);assert.equal(py24.pFusionMode,"dynamic");
 assert.equal(C.resolvePreset("jp-iono","publication").caRestReference,5e-8);assert.equal(C.resolvePreset("jp-iono","python").caRestReference,1.3e-7);
+assert.equal(C.resolvePreset("pnas2022","publication").model,2);assert.equal(C.resolvePreset("jp-control","publication").model,3);
+const base=C.resolvePreset("pnas2022","publication"),noBranches=C.simulateTrain(200,8,{...base,model:1,useMM:false}),mm=C.simulateTrain(200,8,{...base,model:2,useMM:true}),ers=C.simulateTrain(200,8,{...base,model:3,useMM:false,kRefract:3.6});
+assert.ok(noBranches.rows.every(r=>r.TSL===0&&r.ERS===0));assert.ok(mm.rows.some(r=>r.TSL>0)&&mm.rows.every(r=>r.ERS===0));assert.ok(ers.rows.some(r=>r.TSL>0)&&ers.rows.some(r=>r.ERS>0));
 for(const key of Object.keys(C.PRESETS)){const p=C.resolvePreset(key,"publication"),r=C.simulateTrain(100,12,p),inv=C.invariants(r,p);assert.ok(inv.massError<1e-8);assert.ok(inv.minPool>=0);assert.ok(inv.pFusionBounded)}
 assert.ok(Number.isFinite(C.eq31(jp,{frequency:200,pulses:2}).estimate));
 assert.throws(()=>C.simulateTrain(0,2,jp),RangeError);assert.throws(()=>C.simulateTrain(200,2,{...jp,caTauLocal:0}),RangeError);
