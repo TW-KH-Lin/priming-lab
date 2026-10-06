@@ -16,13 +16,15 @@
   };
 
   const PRESETS={
-    pnas2022:{label:"PNAS 2022 · Figure 4",...BASE},
-    pnas2024:{label:"PNAS 2024 · PC-FSIN mean",...BASE,nSites:25.5,pRel0:.6,kf1:.61,kb1:.38,slope1:1.06430155210643e7,kf2:.24,kb2:.3,slope2:2.2172949002217297e7,tauTsl:.0725,fractionTsl:.18,kHalf1:3.3e-7,caTau:.1025,source:"10.1073/pnas.2322550121"},
+    pnas2022:{label:"PNAS 2022 · Rat calyx",...BASE},
+    pnas2024:{label:"PNAS 2024 · Mouse hippocampus · PC–FSIN",...BASE,nSites:25.5,pRel0:.6,kf1:.61,kb1:.38,slope1:1.06430155210643e7,kf2:.24,kb2:.3,slope2:2.2172949002217297e7,tauTsl:.0725,fractionTsl:.18,kHalf1:3.3e-7,caTau:.1025,source:"10.1073/pnas.2322550121"},
+    "pnas2024-olm":{label:"PNAS 2024 · Mouse hippocampus · PC–O-LM",...BASE,nSites:25.5,pRel0:.36,kf1:.61,kb1:.38,slope1:1.06430155210643e7,kf2:.0225,kb2:.3,slope2:2.0e6,tauTsl:.0725,fractionTsl:.18,kHalf1:3.3e-7,caTau:.1025,source:"10.1073/pnas.2322550121"},
     "jp-control":{label:"JP286282 · ionomycin control",...BASE,nSites:2622,pRel0:.22,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.1,kRefract:2.6,useMM:false,model:3,useMultiCa:true,caApScaleWithY:false,yMax:1.31,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
     "jp-iono":{label:"JP286282 · +2.5 µM ionomycin",...BASE,nSites:2622,pRel0:.3,kf1:.37,kb1:.221,slope1:2.245e6,kf2:.199,kb2:.253,slope2:1.014e6,fractionTsl:.15,kRefract:4.2,useMM:false,model:3,useMultiCa:true,caRestActual:1.3e-7,caRestReference:5e-8,caApScaleWithY:false,yMax:1.16,zMin:1,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
     "jp-extca":{label:"JP286282 · 2.0 mM external Ca",...BASE,nSites:2910,pRel0:.42,kf1:.374015,kb1:.215,slope1:2.181e6,kf2:.191,kb2:.264,slope2:1.042e6,fractionTsl:.1,kRefract:2.9,useMM:false,model:3,useMultiCa:true,caRestActual:9e-8,caRestReference:5e-8,caAmplGlobal:5.45e-7,caAmplLocal:3.6e-5,caApScaleWithY:false,yMax:1.28,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
     "jp-pdbu":{label:"J Physiol 2025 · Rat calyx · 1 µM PDBu",...BASE,nSites:3297,pRel0:.29,kf1:.373,kb1:.210,slope1:2.051e6,kf2:.378,kb2:.271,slope2:2.436e6,fractionTsl:.11,kRefract:2.8,useMM:false,model:3,useMultiCa:true,caRestActual:5e-8,caRestReference:5e-8,caApScaleWithY:false,yMax:1.27,zMin:.87,tauY:.017,yPower:4,odeStep:.0001,source:"10.1113/JP286282"},
-    sciadv:{label:"Science Advances 2026 · WT/−",...BASE,nSites:3300,pRel0:.341,kf1:.5,kb1:.231,slope1:8.59e5,kf2:.1357,kb2:.3514,slope2:1.22e6,tauTsl:.07,fractionTsl:.08,kRefract:3.3,useMM:false,model:3,useMultiCa:true,caTauFast:.05,caTauSlow:.24,caFracSlow:.12,caAmplGlobal:3.9e-7,caTauLocal:.00036,caAmplLocal:3.3e-5,caApScaleWithY:false,yInc:.36,yMax:1.22,zMin:.77,tauY:.014,yPower:4.5,odeStep:.0001,source:"10.1126/sciadv.aea0449"}
+    sciadv:{label:"Sci Adv 2026 · Mouse calyx · Munc13-1 WT/−",...BASE,nSites:3300,pRel0:.341,kf1:.5,kb1:.231,slope1:8.59e5,kf2:.1357,kb2:.3514,slope2:1.22e6,tauTsl:.07,fractionTsl:.08,kRefract:3.3,useMM:false,model:3,useMultiCa:true,caTauFast:.05,caTauSlow:.24,caFracSlow:.12,caAmplGlobal:3.9e-7,caTauLocal:.00036,caAmplLocal:3.3e-5,caApScaleWithY:false,yInc:.36,yMax:1.22,zMin:.77,tauY:.014,yPower:4.5,odeStep:.0001,source:"10.1126/sciadv.aea0449"},
+    "sciadv-hk":{label:"Sci Adv 2026 · Mouse calyx · Munc13-1 HK/−",...BASE,nSites:3300,pRel0:.39,kf1:.5,kb1:.231,slope1:1.2e5,kf2:.2918,kb2:.3514,slope2:1.22e6,tauTsl:.07,fractionTsl:.08,kRefract:3.3,useMM:false,model:3,useMultiCa:true,caTauFast:.05,caTauSlow:.24,caFracSlow:.12,caAmplGlobal:3.9e-7,caTauLocal:.00036,caAmplLocal:3.3e-5,caApScaleWithY:false,yInc:.36,yMax:1.22,zMin:.77,tauY:.014,yPower:4.5,odeStep:.0001,source:"10.1126/sciadv.aea0449"}
   };
 
   function resolvePreset(key,target="publication"){
@@ -32,7 +34,7 @@
       if(key==="pnas2024"){p.pFusionMode="dynamic";p.caApScaleWithY=true}
     }else{
       if(key==="pnas2024"){p.pFusionMode="constant";p.caApScaleWithY=false}
-      if(key.startsWith("jp-")||key==="sciadv")p.caRestReference=5e-8;
+      if(key.startsWith("jp-")||key.startsWith("sciadv"))p.caRestReference=5e-8;
     }
     return p;
   }
