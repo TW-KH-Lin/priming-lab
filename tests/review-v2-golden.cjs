@@ -1,5 +1,10 @@
 "use strict";
 const assert=require("node:assert/strict");require("../dist/sim-core.js");const C=globalThis.PrimingCore;
+const pdbu=C.resolvePreset("jp-pdbu","publication");
+assert.equal(pdbu.nSites,3297,"PDBu Ntotal must match Table 2");
+assert.equal(pdbu.pRel0,.29,"PDBu pFusion must match Table 2");
+assert.equal(pdbu.kf2,.378,"PDBu k2,rest must match Table 2");
+assert.equal(pdbu.slope2,2.436e6,"PDBu sigma2 must match Table 2");
 const close=(a,b,t=1e-8)=>assert.ok(Math.abs(a-b)<=t,`${a} != ${b}`);
 const jp=C.resolvePreset("jp-control","python");
 const cond=C.conditioningEstimator(jp,{preFreq:10,prePulses:4,testFreq:200,testPulses:40,window:10});
