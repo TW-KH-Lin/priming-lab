@@ -1,4 +1,4 @@
-# Phenotype → Mechanism — v46
+# Phenotype → Mechanism — v47
 
 ## Scope
 
@@ -8,8 +8,8 @@ Core SHA-256: `485f6314ea0acca8a48545e82dd8f3a4890d041333054173d9e4164e8284939e`
 
 ## Search and interpretation
 
-- Six default kinetic parameters; optional TSL, ERS, calcium-decay and y/z time constants. Other parameters stay at the reference values. Measured N and pFusion are immutable.
-- N is total release sites, **not** the measured FRP/RRP. Do not enter FRP as N without an explicit mapping assumption.
+- Six default kinetic parameters; optional TSL, ERS, calcium-decay and y/z time constants. Other parameters stay at the reference values. Measured N_total and pFusion are immutable. When explicitly unknown, either can be inferred only as a candidate subset change. The unchanged reference values serve as the starting point.
+- N_total is total release-site capacity. Measured resting FRP is an independent phenotype target, **FRP = LS + TS**; at rest the selected model has TSL = ERS = 0 and **N_total = ES + LS + TS**. FRP is never assigned to `nSites`. An optional reported FRP error sets its uncertainty scale; the Table S1 FRP error is from balanced bootstrapping and is not relabelled as SEM.
 - Qualitative ranges produce zero loss inside the range. Missing observations have zero weight. Quantitative errors use supplied SD/SEM, a normal-approximation 95% CI scale, or an explicitly labelled 10% scale.
 - Objective: mean weighted squared standardized residuals plus log-deviation and changed-count penalties. A 1% relative threshold defines the displayed changed count; exact values are exported.
 - Single-parameter screening precedes subset optimization. Bounded Nelder–Mead search uses deterministic starts/seed. Fast checks singles and selected pairs; Standard stages larger subsets when needed; Exhaustive searches every subset up to the user-selected maximum, not all continuous parameter values.
@@ -23,7 +23,7 @@ Core SHA-256: `485f6314ea0acca8a48545e82dd8f3a4890d041333054173d9e4164e8284939e`
 
 ## HK validation
 
-`tests/mechanism-hk.cjs` constructs target readouts from the independently transcribed Science Advances supplementary Table S2 HK parameters, then gives inference only WT, readouts and fixed N/pFusion. The optimizer does not receive HK kinetic rates. This is a **synthetic same-engine parameter-recovery test**, not an independent fit to experimental observations.
+`tests/mechanism-hk.cjs` constructs nine target readouts from the independently transcribed Science Advances supplementary Table S2 HK parameters and adds experimental FRP = 2506 ± 172 vesicles from Table S1. Inference receives only WT, those readouts and locked pFusion = 0.379. N_total is unknown and may be inferred. The optimizer does not receive HK kinetic rates or published N_total. This is a **hybrid experimental FRP / synthetic same-engine parameter-recovery test**, not an independent fit to all experimental observations.
 
 The legacy forward-app HK preset differs from Table S2. It is not used as validation truth and is omitted from the new module's reference menu. It remains unchanged in the original simulator to preserve that version. The verified comparison uses HK N = 3150, pFusion = 0.379, k1 = 0.419, b1 = 0.194, sigma1 = 221000, k2 = 0.2916, b2 = 0.3514, sigma2 = 1810000.
 
