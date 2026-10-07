@@ -1,0 +1,31 @@
+.phenotype-guide [hidden]{display:none!important}
+.phenotype-guide{font-size:14px;line-height:1.5;min-width:0}
+.phenotype-guide>summary{font-size:16px;color:#16364c}
+.phenotype-guide p{font-size:14px;margin:8px 0;line-height:1.5}
+.phenotype-guide .guide-baseline{padding:10px;background:#eef7f5;border-radius:8px;color:#215550}
+.phenotype-guide fieldset{min-width:0;margin:16px 0;padding:12px;border:1px solid #ccd9d8;border-radius:10px}
+.phenotype-guide legend{padding:0 5px;font-size:15px;font-weight:750;color:#16364c}
+.phenotype-guide label{font-size:14px;min-width:0;font-weight:600}
+.phenotype-guide .guide-help{font-size:13px;color:#526477;line-height:1.5;font-weight:400}
+.phenotype-guide input,.phenotype-guide select{font-size:16px;min-height:44px;width:100%;min-width:0;margin:5px 0 0;padding:8px;border:1px solid #bbcaca;border-radius:8px;background:#fff;color:#183043}
+.phenotype-guide .guide-measurements{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.phenotype-guide .guide-observation{display:grid;grid-template-columns:1fr;gap:0;margin:12px 0}
+.phenotype-guide .guide-observation input{background:#f3faf8}
+.phenotype-guide .guide-protocol,.phenotype-guide .guide-explanation{margin:12px 0;padding:10px;border:1px solid #d5dfdf;border-radius:8px;background:#f8faf9}
+.phenotype-guide .guide-protocol summary,.phenotype-guide .guide-explanation summary{font-size:14px;font-weight:650;cursor:pointer;line-height:1.5}
+.phenotype-guide .guide-protocol[open]>summary,.phenotype-guide .guide-explanation[open]>summary{margin-bottom:10px}
+.phenotype-guide #guideRun{width:100%;font-size:15px;min-height:46px;padding:10px;margin:4px 0 0;white-space:normal}
+.phenotype-guide #guideStatus{font-size:14px;color:#2c4d5b}
+.phenotype-guide #guideResults:empty{display:none}
+.phenotype-guide #guideResults h3{font-size:16px;margin:12px 0 6px}
+.phenotype-guide .guide-outcomes{display:grid;gap:8px}
+.phenotype-guide .guide-outcome{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;padding:10px;border:1px solid #cdd9dc;border-radius:8px;background:#fff;font-size:14px}
+.phenotype-guide .guide-outcome strong,.phenotype-guide .guide-outcome>span:last-child{grid-column:1/-1}
+.phenotype-guide .guide-met{color:#096259;font-weight:650}
+.phenotype-guide .guide-miss{color:#984b10;font-weight:650}
+.phenotype-guide .guide-stale{opacity:.65}
+.phenotype-guide .guide-param-table>div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #e1e7e7;padding:6px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.phenotype-guide .guide-param-table>div span:last-child{text-align:right;overflow-wrap:anywhere}
+.phenotype-guide .guide-undo{border:0;background:none;text-decoration:underline;color:#176e69;padding:10px 0;font:inherit;cursor:pointer;min-height:44px}
+.phenotype-guide :focus-visible{outline:3px solid #157dba;outline-offset:2px}
+@media(max-width:360px){.phenotype-guide .guide-measurements,.phenotype-guide .guide-outcome{grid-template-columns:1fr}}
