@@ -1,12 +1,12 @@
 (function(g){
   'use strict';
-  const C=g.PrimingCore, VERSION='46.0.0';
+  const C=g.PrimingCore, VERSION='47.0.0';
   const DEFAULT_KEYS=['kf1','kb1','slope1','kf2','kb2','slope2'];
-  const NAMES={kf1:'Basal k₁',kb1:'b₁',slope1:'Ca slope σ₁',kf2:'Basal k₂',kb2:'b₂',slope2:'Ca slope σ₂',fractionTsl:'TSL fraction',tauTsl:'TSL lifetime',kRefract:'ERS recovery b₄',caTauFast:'Fast Ca decay',caTauSlow:'Slow Ca decay',tauY:'Facilitation decay',tauZ:'Depression decay'};
+  const NAMES={nSites:'Total release-site capacity N',pRel0:'Initial pFusion',kf1:'Basal k₁',kb1:'b₁',slope1:'Ca slope σ₁',kf2:'Basal k₂',kb2:'b₂',slope2:'Ca slope σ₂',fractionTsl:'TSL fraction',tauTsl:'TSL lifetime',kRefract:'ERS recovery b₄',caTauFast:'Fast Ca decay',caTauSlow:'Slow Ca decay',tauY:'Facilitation decay',tauZ:'Depression decay'};
   const QUAL={strongDown:[0,.4],down:[.4,.7],mildDown:[.7,.9],same:[.9,1.1],mildUp:[1.1,1.3],up:[1.3,1.6],strongUp:[1.6,Infinity]};
   const clone=x=>JSON.parse(JSON.stringify(x)), clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   function subsets(keys,size){const out=[];function walk(i,a){if(a.length===size){out.push(a);return}for(let j=i;j<keys.length;j++)walk(j+1,[...a,keys[j]])}walk(0,[]);return out}
-  function defaultBounds(p,key){return key==='fractionTsl'?[0,1]:key.startsWith('slope')?[0,p[key]*10]:key.startsWith('tau')||key.startsWith('caTau')?[p[key]*.2,p[key]*5]:[p[key]*.1,p[key]*10]}
+  function defaultBounds(p,key){return key==='nSites'?[p.nSites*.5,p.nSites*2]:key==='pRel0'?[Math.max(1e-6,p.pRel0*.2),Math.min(1,p.pRel0*2)]:key==='fractionTsl'?[0,1]:key.startsWith('slope')?[0,p[key]*10]:key.startsWith('tau')||key.startsWith('caTau')?[p[key]*.2,p[key]*5]:[p[key]*.1,p[key]*10]}
   function safeParameters(p){
     const positive=['nSites','kf1','kb1','kf2','kb2','tauTsl','kRefract','caTau','caTauFast','caTauSlow','caTauLocal','tauY','tauZ','odeStep','kHalf1'];
     if(positive.some(k=>!(p[k]>0))||['slope1','slope2','caAmpl','caAmplGlobal','caAmplLocal','caRestActual','caRestReference'].some(k=>!(p[k]>=0)))throw Error('Rates, calcium and time constants must be physically valid.');
@@ -26,7 +26,7 @@
     for(const id of ids)if(id.startsWith('train:')){const [,f,j,unit]=id.split(':'),r=train(+f).rows[+j-1];values[id]=r?(unit==='raw'?r.release:r.releaseNorm):NaN}
     const delays=[...new Set(ids.filter(x=>x.startsWith('r:')).map(x=>+x.slice(2)).concat(full?protocol.delays:[]))];
     let recovery=null;if(delays.length){recovery=C.simulateRecovery(train(protocol.recoveryFrequency),delays,p,'last5');for(const r of recovery.points)values['r:'+r.interval]=r.recovered}
-    const resting=C.steadyState(p);values.restTS=resting.ts/p.nSites;
+    const resting=C.steadyState(p);values.restTS=resting.ts/p.nSites;values.frp=resting.ls+resting.ts;
     return {values,resting, ...(full?{trains,recovery}: {})};
   }
   function compileTargets(targets,wt,qualRanges=QUAL){
@@ -43,7 +43,7 @@
         if(t.uncertainty==='ci'){
           if(!(Number.isFinite(t.low)&&Number.isFinite(t.high)&&t.low<t.high&&t.mean>=t.low&&t.mean<=t.high))throw Error('Invalid 95% interval for '+t.id);
           scale=Math.abs((t.high-t.low)*factor)/3.92;
-        }else if(['sd','sem'].includes(t.uncertainty)){
+        }else if(['sd','sem','scale'].includes(t.uncertainty)){
           if(!(t.error>0&&Number.isFinite(t.error)))throw Error('Uncertainty must be positive for '+t.id);scale=t.error*Math.abs(factor);
         }else scale=Math.max(Math.abs(mean),Math.abs(ref),.01)*.1;
         low=high=mean;
@@ -70,15 +70,15 @@
     for(const [k,v] of Object.entries(C.resolvePreset('sciadv','publication')))if(typeof v==='number'&&!Number.isFinite(r.reference[k]))throw Error('Missing or non-finite reference parameter: '+k);
     if(![1,2,3].includes(r.reference.model)||r.reference.odeStep<1e-6)throw Error('Invalid reference model or integration step.');
     safeParameters(r.reference);
-    for(const [k,v] of Object.entries(r.locks||{}))if(!['nSites','pRel0',...Object.keys(NAMES)].includes(k)||!Number.isFinite(v)||v<0||k==='pRel0'&&(v<=0||v>1)||k==='nSites'&&v<=0)throw Error('Invalid locked value: '+k);
+    for(const [k,v] of Object.entries(r.locks||{}))if(!Object.keys(NAMES).includes(k)||!Number.isFinite(v)||v<0||k==='pRel0'&&(v<=0||v>1)||k==='nSites'&&v<=0)throw Error('Invalid locked value: '+k);
     if(!r.keys.length||r.keys.length>8||new Set(r.keys).size!==r.keys.length)throw Error('Choose 1–8 distinct inferable parameters.');
-    for(const k of r.keys){if(!NAMES[k]||k in (r.locks||{}))throw Error('Locked or unsupported inferable parameter: '+k);const b=r.bounds[k];if(!b||b.length!==2||!b.every(Number.isFinite)||b[0]<0||b[1]<=b[0]||(!k.startsWith('slope')&&k!=='fractionTsl'&&b[0]<=0)||k==='fractionTsl'&&b[1]>1)throw Error('Invalid bounds: '+k)}
+    for(const k of r.keys){if(!NAMES[k]||k in (r.locks||{}))throw Error('Locked or unsupported inferable parameter: '+k);const b=r.bounds[k];if(!b||b.length!==2||!b.every(Number.isFinite)||b[0]<0||b[1]<=b[0]||(!k.startsWith('slope')&&k!=='fractionTsl'&&b[0]<=0)||k==='fractionTsl'&&b[1]>1||k==='pRel0'&&b[1]>1)throw Error('Invalid bounds: '+k)}
     const extreme={...r.reference,...r.locks};for(const k of r.keys)extreme[k]=r.bounds[k][k.startsWith('tau')?0:1];safeParameters(extreme);
     if(!['fast','standard','exhaustive'].includes(r.settings.mode)||!(r.settings.maxChanged>=1&&r.settings.maxChanged<=r.keys.length)||!Number.isInteger(r.settings.maxChanged))throw Error('Invalid search settings.');
     if(![r.settings.lambdaChange,r.settings.lambdaCount].every(v=>Number.isFinite(v)&&v>=0)||!(r.settings.nearTolerance>=0&&r.settings.nearTolerance<=1))throw Error('Invalid complexity/tolerance setting.');
     if(r.settings.iterations!==undefined&&!(Number.isInteger(r.settings.iterations)&&r.settings.iterations>=1&&r.settings.iterations<=200))throw Error('Invalid iteration budget.');
     if(r.settings.seed!==undefined&&!(Number.isInteger(r.settings.seed)&&r.settings.seed>=0&&r.settings.seed<=4294967295))throw Error('Seed must be an integer between 0 and 4294967295.');
-    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
+    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS','frp'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id==='frp'&&t.kind==='quantitative'&&!(t.mean>0))throw Error('Measured FRP must be positive');if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
   }
   function coverage(e,wtError){return wtError<1e-12?null:clamp(1-e/wtError,0,1)}
   function optimizeSubset(subset,seedParams,context,budget,startCount){
