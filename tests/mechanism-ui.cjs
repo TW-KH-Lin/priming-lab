@@ -1,0 +1,35 @@
+'use strict';
+// In-memory DOM checks; no browser access or network requests.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{JSDOM}=require('jsdom');
+const dist=path.join(__dirname,'../dist'),dom=new JSDOM(fs.readFileSync(path.join(dist,'mechanism.html'),'utf8'),{runScripts:'outside-only',url:'https://example.invalid/mechanism.html'}),w=dom.window;
+let lastRequest,requests=0,terminated=0;
+w.Worker=class{terminate(){this.cancelled=true;terminated++}postMessage(r){lastRequest=JSON.parse(JSON.stringify(r));requests++;setTimeout(()=>{if(this.cancelled)return;try{const result=w.MechanismEngine.infer({...r,settings:{...r.settings,iterations:3}});this.onmessage({data:{type:'result',result}})}catch(e){this.onmessage({data:{type:'error',message:e.message}})}},0)}};
+for(const file of ['sim-core.js','mechanism-engine.js','mechanism-ui.js'])w.eval(fs.readFileSync(path.join(dist,file),'utf8'));
+const $=s=>w.document.querySelector(s),input=(s,v)=>{$(s).value=String(v);$(s).dispatchEvent(new w.Event('input',{bubbles:true}));},change=(s,v)=>{input(s,v);$(s).dispatchEvent(new w.Event('change',{bubbles:true}));};
+const run=()=>$('#inferenceForm').dispatchEvent(new w.Event('submit',{cancelable:true,bubbles:true})),wait=()=>new Promise(resolve=>setTimeout(resolve,20));
+(async()=>{
+ assert.equal($('#reference').value,'sciadv');assert.equal($('#mutantP').disabled,true);assert.equal(w.document.querySelectorAll('.target').length,14);
+ run();assert.match($('#progress').textContent,/at least one/);assert.equal(requests,0);
+ $('#lockP').checked=true;$('#lockP').dispatchEvent(new w.Event('change'));assert.equal($('#mutantP').disabled,false);input('#mutantP',.379);
+ input('#pulses',8);input('#traceFrequencies','200');input('#traceDelays','.1');input('#maxChanged',1);change('#searchMode','fast');
+ input('[data-id="p1"] [data-field="level"]','strongUp');run();await wait();
+ assert.match($('#progress').textContent,/Complete/);assert.equal(lastRequest.locks.pRel0,.379);assert.equal(lastRequest.qualitativeRanges.strongUp[1],null);
+ assert.match($('#results').textContent,/Parameter identifiability/);assert.match($('#results').textContent,/Necessity × sufficiency/);assert.match($('#results').textContent,/not statistical confidence/);
+ assert.ok(w.document.querySelectorAll('#results svg path').length>5);assert.ok(!$('#results').innerHTML.includes('NaN'),'No NaN chart coordinates');
+ assert.ok($('#exportMechanismJSON'));assert.ok($('#exportMechanismCSV'));
+ change('#inputMode','quantitative');assert.ok($('#results').classList.contains('progress-stale'));
+ input('[data-id="p1"] [data-field="mean"]',1.5);input('[data-id="p1"] [data-field="uncertainty"]','sem');input('[data-id="p1"] [data-field="error"]',.1);run();await wait();
+ assert.match($('#progress').textContent,/Complete/);assert.equal(lastRequest.targets.length,1);assert.equal(lastRequest.targets[0].error,.1);assert.equal(lastRequest.targets[0].unit,'ratio');
+ run();run();await wait();assert.match($('#progress').textContent,/cancelled/);
+ input('#mutantP',2);run();assert.match($('#progress').textContent,/Invalid locked/);
+ const benchmark=JSON.parse(fs.readFileSync(path.join(dist,'hk-benchmark.json'),'utf8'));
+ w.fetch=async()=>({ok:true,json:async()=>benchmark});$('#loadHK').click();await wait();
+ assert.match($('#results').textContent,/HK publication comparison/);assert.match($('#results').textContent,/Outside near-optimal error tolerance/);
+ assert.equal($('#mutantN').value,'3150');assert.equal($('#mutantP').value,'0.379');assert.equal($('#minimalCriterion').value,'near');
+ assert.equal($('#inputMode').value,'quantitative');assert.equal($('#pulses').value,'40');
+ assert.ok(!$('#results').innerHTML.includes('NaN'),'Benchmark plot coordinates must be finite');
+ assert.match($('#results').textContent,/Insufficient sampling/);
+ run();run();await wait();assert.equal(lastRequest.locks.nSites,3150);assert.equal(lastRequest.targets.length,9);assert.deepEqual(lastRequest.keys,['kf1','kb1','slope1','kf2','kb2','slope2']);
+ assert.ok(!('publication' in lastRequest),'Published HK kinetic rates must not enter inference');
+ console.log(`Mechanism DOM checks passed: ${requests} worker requests; mode switching, broad targets, measured locks, rendering, stale state, cancellation and validation. ${terminated} worker terminations.`);w.close();
+})().catch(e=>{console.error(e);process.exitCode=1;w.close()});

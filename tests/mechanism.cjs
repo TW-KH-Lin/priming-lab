@@ -1,0 +1,37 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('../dist/sim-core.js');require('../dist/mechanism-engine.js');
+const C=PrimingCore,E=MechanismEngine,wt=C.resolvePreset('sciadv','publication');
+const protocol={pulses:8,pprFrequency:200,recoveryFrequency:200,frequencies:[200],delays:[.1,.3]};
+const params={...wt,nSites:3150,pRel0:.379,kf2:wt.kf2*2,slope1:wt.slope1*.3};
+const ids=['p1','ppr','ss:200','r:0.1','r:0.3','restTS'];
+const measured=E.extractPhenotype(params,protocol,ids).values;
+const request={reference:wt,referenceName:'Synthetic test',locks:{nSites:3150,pRel0:.379},keys:['kf2','slope1'],bounds:{kf2:E.defaultBounds(wt,'kf2'),slope1:E.defaultBounds(wt,'slope1')},protocol,targets:ids.map(id=>({id,kind:'quantitative',mean:measured[id],unit:'absolute',uncertainty:'none',weight:1})),settings:{mode:'exhaustive',maxChanged:2,lambdaChange:0,lambdaCount:0,nearTolerance:.1,seed:23,iterations:45}};
+const snapshot=JSON.stringify(request);
+assert.equal(Array.from({length:7},(_,i)=>E.subsets(E.DEFAULT_KEYS,i).length).reduce((a,b)=>a+b),64);
+assert.equal(E.coverage(5,10),.5);assert.equal(E.coverage(15,10),0);assert.equal(E.coverage(0,0),null);
+const q=E.compileTargets([{id:'p1',kind:'qualitative',level:'strongUp',weight:1}],{p1:10},{strongUp:[1.6,null]});
+assert.equal(E.error({p1:100},q).value,0);assert.ok(E.error({p1:12},q).value>0);
+const t=E.compileTargets([{id:'p1',kind:'quantitative',mean:20,error:2,uncertainty:'sem',weight:1},{id:'ppr',kind:'unknown',weight:0}],{p1:10});
+assert.equal(E.error({p1:22},t).value,1);
+assert.throws(()=>E.infer({...request,keys:['nSites']}),/unsupported|Locked/);
+assert.throws(()=>E.infer({...request,locks:{pRel0:2}}),/locked/);
+assert.throws(()=>E.infer({...request,targets:request.targets.map(t=>({...t,weight:0}))}),/zero-weight/);
+assert.throws(()=>E.validate({...request,bounds:{...request.bounds,kf2:[-1,2]}}),/bounds/);
+console.time('Synthetic mechanism');const result=E.infer(request);console.timeEnd('Synthetic mechanism');
+assert.equal(JSON.stringify(request),snapshot,'Inference must not mutate the reference or targets');
+assert.equal(result.subsets.length,3,'All nonempty subsets of two allowed parameters');
+for(const s of [result.minimal,result.numerical,...result.alternatives]){assert.equal(s.params.nSites,3150);assert.equal(s.params.pRel0,.379);assert.equal(s.params.kRefract,wt.kRefract)}
+assert.ok(result.numerical.coverage>.99,`Synthetic coverage ${result.numerical.coverage}`);
+assert.ok(result.numerical.params.kf2>wt.kf2);assert.ok(result.numerical.params.slope1<wt.slope1);
+for(const a of result.attribution)if(!result.minimal.changed.includes(a.key)){assert.equal(a.necessity,0);assert.equal(a.sufficiency,0)}
+assert.equal(result.sufficientCombinations.length,2**result.minimal.count);
+assert.ok(result.attribution.every(a=>Number.isFinite(a.necessity)));
+assert.ok(result.frontier.every((p,i,a)=>!i||p.coverage>=a[i-1].coverage));
+const tr=C.simulateTrain(200,8,result.minimal.params),saved=JSON.stringify(tr);
+assert.deepEqual(result.traces.minimal.recovery.points,C.simulateRecovery(tr,[...protocol.delays],result.minimal.params,'last5').points);
+assert.equal(JSON.stringify(tr),saved,'Virtual probes must not modify the post-conditioning state');
+const short={...request,settings:{...request.settings,mode:'fast',maxChanged:1,iterations:3}};
+assert.deepEqual(E.infer(short).numerical.params,E.infer(short).numerical.params,'Seeded repeatability');
+console.log(JSON.stringify({coverage:result.minimal.coverage,changed:result.minimal.changed,evaluations:result.evaluations}));
+console.log('Mechanism tests passed: bounds, locks, missing data, uncertainty, qualitative ranges, subsets, synthetic recovery, attribution and determinism.');
