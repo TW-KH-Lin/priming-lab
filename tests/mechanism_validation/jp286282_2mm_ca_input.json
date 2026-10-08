@@ -1,0 +1,15 @@
+{
+  "kind": "Experimental retrospective validation input",
+  "source": "https://physoc.onlinelibrary.wiley.com/doi/full/10.1113/JP286282",
+  "referencePreset": "jp-control",
+  "locks": {"pRel0": 0.42, "nSites": 2910},
+  "targets": [
+    {"id":"p1","kind":"quantitative","mean":472,"unit":"absolute","uncertainty":"none","error":null,"weight":3},
+    {"id":"frp","kind":"quantitative","mean":2128,"unit":"absolute","uncertainty":"none","error":null,"weight":3},
+    {"id":"ts","kind":"quantitative","mean":1125,"unit":"absolute","uncertainty":"none","error":null,"weight":3},
+    {"id":"ppr","kind":"qualitative","level":"down","weight":1},
+    {"id":"ss:10","kind":"qualitative","level":"down","weight":2},
+    {"id":"ca:ap_global","kind":"quantitative","mean":1.2,"unit":"ratio","uncertainty":"none","error":null,"weight":1}
+  ],
+  "protocol": {"pulses":40,"pprFrequency":200,"recoveryFrequency":200,"frequencies":[5,10,20,50,100,200],"delays":[0.02,0.05,0.1,0.2,0.5,1,2,5]}
+}

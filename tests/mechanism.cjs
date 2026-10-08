@@ -22,6 +22,14 @@ assert.ok(resting.values.frp<wt.nSites,'FRP must not silently become total capac
 assert.ok(Math.abs(rest.es+resting.values.frp-wt.nSites)<1e-8,'At rest, ES + LS + TS equals N_total');
 assert.deepEqual(E.defaultBounds(wt,'nSites'),[wt.nSites*.5,wt.nSites*2]);
 assert.ok(E.defaultBounds(wt,'pRel0')[1]<=1);
+const jp=C.resolvePreset('jp-control','publication'),elevated={...jp,caRestActual:1.3e-7};
+assert.equal(elevated.caRestReference,jp.caRestReference,'Increasing actual Ca must not redefine the rate reference');
+assert.ok(C.steadyState(elevated).ts>C.steadyState(jp).ts,'Actual resting Ca shifts priming occupancy');
+assert.equal(E.extractPhenotype(elevated,protocol,['ca:rest','ts']).values['ca:rest'],1.3e-7);
+assert.deepEqual(E.FAMILIES.calcium.includes('caRestActual'),true);
+assert.deepEqual(E.FAMILIES.calcium.includes('caRestReference'),true);
+assert.deepEqual(E.defaultBounds(jp,'caRestActual'),[1e-8,1e-6]);
+assert.ok(E.NAMES.caAmplGlobal&&E.NAMES.caAmplLocal&&E.NAMES.yPower&&E.NAMES.kRefract);
 assert.throws(()=>E.infer({...request,keys:['nSites']}),/unsupported|Locked/);
 assert.throws(()=>E.validate({...request,keys:['pRel0'],bounds:{pRel0:E.defaultBounds(wt,'pRel0')}}),/Locked/,'Measured pFusion must never be inferable');
 assert.throws(()=>E.infer({...request,locks:{pRel0:2}}),/locked/);

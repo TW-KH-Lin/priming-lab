@@ -1,0 +1,18 @@
+{
+  "kind": "Experimental retrospective validation input",
+  "source": "https://www.science.org/doi/10.1126/sciadv.aea0449",
+  "referencePreset": "sciadv",
+  "locks": {"pRel0": 0.379},
+  "targets": [
+    {"id":"p1","kind":"quantitative","mean":1.473,"unit":"ratio","uncertainty":"none","error":null,"weight":2},
+    {"id":"frp","kind":"quantitative","mean":2506,"unit":"absolute","uncertainty":"scale","error":172,"weight":3},
+    {"id":"ts","kind":"quantitative","mean":1153,"unit":"absolute","uncertainty":"scale","error":200,"weight":2},
+    {"id":"ppr","kind":"qualitative","level":"down","weight":1},
+    {"id":"ss:100","kind":"qualitative","level":"down","weight":1},
+    {"id":"ss:200","kind":"qualitative","level":"down","weight":1},
+    {"id":"r:0.5","kind":"quantitative","mean":0.039,"unit":"absolute","uncertainty":"sem","error":0.011,"weight":1},
+    {"id":"r:1","kind":"quantitative","mean":0.151,"unit":"absolute","uncertainty":"sem","error":0.015,"weight":1},
+    {"id":"r:2","kind":"quantitative","mean":0.355,"unit":"absolute","uncertainty":"sem","error":0.019,"weight":1}
+  ],
+  "protocol": {"pulses":40,"pprFrequency":200,"recoveryFrequency":100,"frequencies":[5,20,100,200],"delays":[0.02,0.05,0.1,0.2,0.5,1,2,5]}
+}

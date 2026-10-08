@@ -1,0 +1,7 @@
+{
+  "kind": "Published answer; load only after prediction is frozen",
+  "expectedFamily": "Calcium handling",
+  "expectedDirections": {"caAmplGlobal":"up","caAmplLocal":"up"},
+  "controlLike": ["kf1","kb1","slope1","kf2","kb2","slope2"],
+  "published": {"caAmplGlobal":5.45e-7,"caAmplLocal":3.6e-5}
+}

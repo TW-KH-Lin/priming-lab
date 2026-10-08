@@ -1,0 +1,7 @@
+{
+  "kind": "Published answer; load only after prediction is frozen",
+  "expectedFamily": "Priming kinetics",
+  "expectedDirections": {"kf2":"up","slope2":"up"},
+  "controlLike": ["kf1","kb1","slope1","kb2"],
+  "published": {"kf2":0.378,"slope2":2436000}
+}

@@ -1,14 +1,16 @@
 (function(g){
   'use strict';
-  const C=g.PrimingCore, VERSION='47.0.0';
+  const C=g.PrimingCore, VERSION='48.0.0';
   const DEFAULT_KEYS=['kf1','kb1','slope1','kf2','kb2','slope2'];
-  const NAMES={nSites:'Total release-site capacity N',pRel0:'Initial pFusion',kf1:'Basal k₁',kb1:'b₁',slope1:'Ca slope σ₁',kf2:'Basal k₂',kb2:'b₂',slope2:'Ca slope σ₂',fractionTsl:'TSL fraction',tauTsl:'TSL lifetime',kRefract:'ERS recovery b₄',caTauFast:'Fast Ca decay',caTauSlow:'Slow Ca decay',tauY:'Facilitation decay',tauZ:'Depression decay'};
+  const FAMILIES={priming:DEFAULT_KEYS,calcium:['caRestActual','caRestReference','caAmplGlobal','caAmplLocal','caTauFast','caTauSlow','caFracSlow'],stp:['yInc','yMax','zDec','zMin','tauY','tauZ','yPower'],refractory:['fractionTsl','tauTsl','kRefract']};
+  const NAMES={nSites:'Total release-site capacity N',pRel0:'Initial pFusion',kf1:'Basal k₁',kb1:'b₁',slope1:'Ca slope σ₁',kf2:'Basal k₂',kb2:'b₂',slope2:'Ca slope σ₂',caRestActual:'Actual resting Ca²⁺',caRestReference:'Rate-reference Ca²⁺',caAmplGlobal:'AP global Ca amplitude',caAmplLocal:'AP local Ca amplitude',caTauFast:'Fast Ca decay',caTauSlow:'Slow Ca decay',caFracSlow:'Slow Ca fraction',yInc:'Facilitation increment',yMax:'Maximum facilitation',zDec:'Depression decrement',zMin:'Minimum depression',tauY:'Facilitation decay',tauZ:'Depression decay',yPower:'Facilitation exponent',fractionTsl:'TSL fraction',tauTsl:'TSL lifetime',kRefract:'ERS recovery b₄'};
   const QUAL={strongDown:[0,.4],down:[.4,.7],mildDown:[.7,.9],same:[.9,1.1],mildUp:[1.1,1.3],up:[1.3,1.6],strongUp:[1.6,Infinity]};
+  const SIM_NUMERIC=['nSites','pRel0','kf1','kb1','slope1','kf2','kb2','slope2','tauTsl','fractionTsl','kHalf1','kRefract','caRestActual','caRestReference','caTau','caAmpl','caTauFast','caTauSlow','caFracSlow','caAmplGlobal','caTauLocal','caAmplLocal','yInc','zDec','yMax','zMin','tauY','tauZ','yPower','odeStep'];
   const clone=x=>JSON.parse(JSON.stringify(x)), clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   function subsets(keys,size){const out=[];function walk(i,a){if(a.length===size){out.push(a);return}for(let j=i;j<keys.length;j++)walk(j+1,[...a,keys[j]])}walk(0,[]);return out}
-  function defaultBounds(p,key){return key==='nSites'?[p.nSites*.5,p.nSites*2]:key==='pRel0'?[Math.max(1e-6,p.pRel0*.2),Math.min(1,p.pRel0*2)]:key==='fractionTsl'?[0,1]:key.startsWith('slope')?[0,p[key]*10]:key.startsWith('tau')||key.startsWith('caTau')?[p[key]*.2,p[key]*5]:[p[key]*.1,p[key]*10]}
+  function defaultBounds(p,key){if(key==='nSites')return[p.nSites*.5,p.nSites*2];if(key==='pRel0')return[Math.max(1e-6,p.pRel0*.2),Math.min(1,p.pRel0*2)];if(key==='caRestActual')return[1e-8,1e-6];if(key==='caRestReference')return[1e-8,1e-6];if(key==='caAmplGlobal'||key==='caAmplLocal')return[p[key]*.2,p[key]*5];if(key==='fractionTsl'||key==='caFracSlow'||key==='yInc'||key==='zDec'||key==='zMin')return[0,1];if(key==='yMax')return[1,Math.max(2,p.yMax*2)];if(key==='yPower')return[.2,p.yPower*5];if(key.startsWith('slope'))return[0,p[key]*10];if(key.startsWith('tau')||key.startsWith('caTau'))return[p[key]*.2,p[key]*5];return[p[key]*.1,p[key]*10]}
   function safeParameters(p){
-    const positive=['nSites','kf1','kb1','kf2','kb2','tauTsl','kRefract','caTau','caTauFast','caTauSlow','caTauLocal','tauY','tauZ','odeStep','kHalf1'];
+    const positive=['nSites','kf1','kb1','kf2','kb2','tauTsl','kRefract','caTau','caTauFast','caTauSlow','caTauLocal','tauY','tauZ','odeStep','kHalf1','caRestActual','caRestReference'];
     if(positive.some(k=>!(p[k]>0))||['slope1','slope2','caAmpl','caAmplGlobal','caAmplLocal','caRestActual','caRestReference'].some(k=>!(p[k]>=0)))throw Error('Rates, calcium and time constants must be physically valid.');
     if(['pRel0','fractionTsl','caFracSlow','yInc','zDec','zMin'].some(k=>!(p[k]>=0&&p[k]<=1))||p.yMax<1||p.yPower<0||Math.min(p.tauTsl,p.caTau,p.caTauFast,p.caTauSlow,p.caTauLocal,p.tauY,p.tauZ)<1e-6)throw Error('Invalid probability or time constant.');
     // Conservative stability guard for the unchanged simulator's RK4 step.
@@ -26,7 +28,7 @@
     for(const id of ids)if(id.startsWith('train:')){const [,f,j,unit]=id.split(':'),r=train(+f).rows[+j-1];values[id]=r?(unit==='raw'?r.release:r.releaseNorm):NaN}
     const delays=[...new Set(ids.filter(x=>x.startsWith('r:')).map(x=>+x.slice(2)).concat(full?protocol.delays:[]))];
     let recovery=null;if(delays.length){recovery=C.simulateRecovery(train(protocol.recoveryFrequency),delays,p,'last5');for(const r of recovery.points)values['r:'+r.interval]=r.recovered}
-    const resting=C.steadyState(p);values.restTS=resting.ts/p.nSites;values.frp=resting.ls+resting.ts;
+    const resting=C.steadyState(p);values.restTS=resting.ts/p.nSites;values.frp=resting.ls+resting.ts;values.ts=resting.ts;values.ls=resting.ls;values.es=resting.es;values['ca:rest']=p.caRestActual;values['ca:ap_global']=p.caAmplGlobal;values['ca:ap_local']=p.caAmplLocal;
     return {values,resting, ...(full?{trains,recovery}: {})};
   }
   function compileTargets(targets,wt,qualRanges=QUAL){
@@ -45,7 +47,7 @@
           scale=Math.abs((t.high-t.low)*factor)/3.92;
         }else if(['sd','sem','scale'].includes(t.uncertainty)){
           if(!(t.error>0&&Number.isFinite(t.error)))throw Error('Uncertainty must be positive for '+t.id);scale=t.error*Math.abs(factor);
-        }else scale=Math.max(Math.abs(mean),Math.abs(ref),.01)*.1;
+        }else scale=Math.max(Math.abs(mean),Math.abs(ref),1e-12)*.1;
         low=high=mean;
       }
       return {...t,low,high,scale};
@@ -67,18 +69,19 @@
     if(![...p.frequencies,p.pprFrequency,p.recoveryFrequency].every(f=>Number.isFinite(f)&&f>=.5&&f<=333))throw Error('Frequencies must be between 0.5 and 333 Hz.');
     if(!p.delays.every(t=>Number.isFinite(t)&&t>0&&t<=16))throw Error('Recovery delays must be positive and at most 16 s.');
     if(!(r.reference.pRel0>0&&r.reference.pRel0<=1&&r.reference.nSites>0))throw Error('The reference needs positive N and a valid initial fusion probability.');
-    for(const [k,v] of Object.entries(C.resolvePreset('sciadv','publication')))if(typeof v==='number'&&!Number.isFinite(r.reference[k]))throw Error('Missing or non-finite reference parameter: '+k);
+    for(const k of SIM_NUMERIC)if(!Number.isFinite(r.reference[k]))throw Error('Missing or non-finite reference parameter: '+k);
     if(![1,2,3].includes(r.reference.model)||r.reference.odeStep<1e-6)throw Error('Invalid reference model or integration step.');
     safeParameters(r.reference);
     for(const [k,v] of Object.entries(r.locks||{}))if(!Object.keys(NAMES).includes(k)||!Number.isFinite(v)||v<0||k==='pRel0'&&(v<=0||v>1)||k==='nSites'&&v<=0)throw Error('Invalid locked value: '+k);
-    if(!r.keys.length||r.keys.length>8||new Set(r.keys).size!==r.keys.length)throw Error('Choose 1–8 distinct inferable parameters.');
-    for(const k of r.keys){if(!NAMES[k]||k in (r.locks||{}))throw Error('Locked or unsupported inferable parameter: '+k);const b=r.bounds[k];if(!b||b.length!==2||!b.every(Number.isFinite)||b[0]<0||b[1]<=b[0]||(!k.startsWith('slope')&&k!=='fractionTsl'&&b[0]<=0)||k==='fractionTsl'&&b[1]>1||k==='pRel0'&&b[1]>1)throw Error('Invalid bounds: '+k)}
-    const extreme={...r.reference,...r.locks};for(const k of r.keys)extreme[k]=r.bounds[k][k.startsWith('tau')?0:1];safeParameters(extreme);
+    if(!r.keys.length||r.keys.length>24||new Set(r.keys).size!==r.keys.length)throw Error('Choose 1–24 distinct inferable parameters.');
+    const fractions=['fractionTsl','caFracSlow','yInc','zDec','zMin'];
+    for(const k of r.keys){if(!NAMES[k]||k in (r.locks||{}))throw Error('Locked or unsupported inferable parameter: '+k);const b=r.bounds[k];if(!b||b.length!==2||!b.every(Number.isFinite)||b[0]<0||b[1]<=b[0]||(!k.startsWith('slope')&&!fractions.includes(k)&&b[0]<=0)||fractions.includes(k)&&b[1]>1||k==='pRel0'&&b[1]>1||k==='yMax'&&b[0]<1)throw Error('Invalid bounds: '+k)}
+    for(const k of r.keys){const extreme={...r.reference,...r.locks,[k]:r.bounds[k][k.startsWith('tau')||k.startsWith('caTau')?0:1]};safeParameters(extreme)}
     if(!['fast','standard','exhaustive'].includes(r.settings.mode)||!(r.settings.maxChanged>=1&&r.settings.maxChanged<=r.keys.length)||!Number.isInteger(r.settings.maxChanged))throw Error('Invalid search settings.');
     if(![r.settings.lambdaChange,r.settings.lambdaCount].every(v=>Number.isFinite(v)&&v>=0)||!(r.settings.nearTolerance>=0&&r.settings.nearTolerance<=1))throw Error('Invalid complexity/tolerance setting.');
     if(r.settings.iterations!==undefined&&!(Number.isInteger(r.settings.iterations)&&r.settings.iterations>=1&&r.settings.iterations<=200))throw Error('Invalid iteration budget.');
     if(r.settings.seed!==undefined&&!(Number.isInteger(r.settings.seed)&&r.settings.seed>=0&&r.settings.seed<=4294967295))throw Error('Seed must be an integer between 0 and 4294967295.');
-    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS','frp'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id==='frp'&&t.kind==='quantitative'&&!(t.mean>0))throw Error('Measured FRP must be positive');if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
+    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS','frp','ts','ls','es','ca:rest','ca:ap_global','ca:ap_local'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id==='frp'&&t.kind==='quantitative'&&!(t.mean>0))throw Error('Measured FRP must be positive');if(['ts','ls','es'].includes(t.id)&&t.kind==='quantitative'&&!(t.mean>=0))throw Error('Pool target must be non-negative');if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
   }
   function coverage(e,wtError){return wtError<1e-12?null:clamp(1-e/wtError,0,1)}
   function optimizeSubset(subset,seedParams,context,budget,startCount){
@@ -127,14 +130,24 @@
     let stageKeys=r.keys;
     for(let size=1;size<=r.settings.maxChanged;size++){
       if(mode==='fast'&&size>2)break;
-      if(mode==='fast'&&size===2)stageKeys=subsetResults.filter(s=>s.subset.length===1).sort((a,b)=>a.best.error-b.best.error).slice(0,4).map(s=>s.subset[0]);
+      if(size===2&&r.keys.length>8){
+        const singles=subsetResults.filter(s=>s.subset.length===1).sort((a,b)=>a.best.objective-b.best.objective);
+        const ceiling=mode==='fast'?6:mode==='standard'?10:Math.min(r.keys.length,14);
+        const pool=new Set(singles.slice(0,ceiling).map(s=>s.subset[0]));
+        for(const family of Object.values(FAMILIES)){const ranked=singles.filter(s=>family.includes(s.subset[0]));if(ranked.length)pool.add(ranked[0].subset[0])}
+        stageKeys=r.keys.filter(k=>pool.has(k));
+      }else if(mode==='fast'&&size===2)stageKeys=subsetResults.filter(s=>s.subset.length===1).sort((a,b)=>a.best.error-b.best.error).slice(0,4).map(s=>s.subset[0]);
+      if(size>=3&&stageKeys.length>8){
+        const ranked=subsetResults.filter(s=>s.subset.length===2).sort((a,b)=>a.best.objective-b.best.objective).slice(0,8).flatMap(s=>s.subset);
+        const top=new Set(ranked.slice(0,8));stageKeys=r.keys.filter(k=>top.has(k));
+      }
       const groups=subsets(stageKeys,size);
       for(let index=0;index<groups.length;index++){
         const subset=groups[index],start={...fixed};subset.forEach(k=>start[k]=warm.params[k]);
         const found=optimizeSubset(subset,start,context,budget,starts),best=found.sort((a,b)=>a.error-b.error)[0];subsetResults.push({subset,best});if(best.error<warm.error)warm=best;
         progress({stage:size,subset:index+1,total:groups.length,evaluations,bestError:warm.error});
       }
-      if(mode!=='exhaustive'&&size>=2&&warm.rows.every(x=>x.met)&&warm.coverage>=.9)break;
+      if(mode!=='exhaustive'&&size>=2&&warm.rows.every(x=>x.met)&&warm.coverage>=.995)break;
     }
     const finite=pool.filter(s=>Number.isFinite(s.error));if(!finite.length)throw Error('No finite simulation satisfies the supplied setup.');
     finite.sort((a,b)=>a.error-b.error);const numerical=finite[0],threshold=numerical.error+Math.max(1e-6,numerical.error*r.settings.nearTolerance);
@@ -163,6 +176,11 @@
       return {key,median:percentile(v,.5),low,high,direction:up>=down?'increase':'decrease',directionConsistency,inclusion:minimalNear.filter(s=>s.changed.includes(key)).length/Math.max(1,minimalNear.length),confidence,samples:v.length};
     });
     const frontier=[];for(let n=0;n<=r.keys.length;n++){const ss=finite.filter(s=>s.count<=n);if(ss.length){const s=ss.reduce((a,b)=>a.error<b.error?a:b);frontier.push({count:n,error:s.error,coverage:s.coverage})}}
+    const familyOptions=[['Calcium handling',['calcium']],['Priming kinetics',['priming']],['STP / refractory',['stp','refractory']],['Calcium + priming',['calcium','priming']],['Priming + STP',['priming','stp','refractory']],['Calcium + STP',['calcium','stp','refractory']],['Combined',['calcium','priming','stp','refractory']]];
+    const parameterFamily=k=>Object.keys(FAMILIES).find(f=>FAMILIES[f].includes(k));
+    const familyModels=familyOptions.map(([name,families])=>{const models=subsetResults.filter(s=>{const active=[...new Set(s.best.changed.map(parameterFamily).filter(Boolean))];return active.length===families.length&&active.every(f=>families.includes(f))});const best=models.length?models.reduce((a,b)=>a.best.objective<b.best.objective?a:b).best:null;return{name,families,bestError:best?.error??null,objective:best?.objective??null,changed:best?.changed??[],searchedSubsets:models.length}});
+    const validFamilies=familyModels.filter(x=>x.objective!==null),baseObjective=Math.min(...validFamilies.map(x=>x.objective)),temperature=Math.max(baseObjective*.1,.01),totalSupport=validFamilies.reduce((s,x)=>s+Math.exp(-(x.objective-baseObjective)/temperature),0);
+    for(const item of familyModels)item.relativeSupport=item.objective===null?0:Math.exp(-(item.objective-baseObjective)/temperature)/totalSupport;
     const traces={wt:extractPhenotype(wt,r.protocol,ids,true),minimal:extractPhenotype(minimal.params,r.protocol,ids,true)};
     let nextExperiment=null;if(alternates.length>1){
       const possible=['ss:10','ss:50','ss:333','r:0.05','r:0.5','r:2'].filter(id=>!ids.includes(id));
@@ -172,7 +190,11 @@
     const restWT=traces.wt.resting.ts/wt.nSites,restM=traces.minimal.resting.ts/minimal.params.nSites;
     interpretations.push(`Resting TS fraction changes from ${(restWT*100).toFixed(1)}% to ${(restM*100).toFixed(1)}%.`);
     if(minimal.changed.includes('slope1'))interpretations.push(`The selected Ca-dependent ES→LS slope is ${minimal.params.slope1<wt.slope1?'lower':'higher'}; its contributions to replenishment and recovery are quantified below.`);
-    return {version:VERSION,createdAt:new Date().toISOString(),request:r,targets,wtError,constrainedBaseline:baseline,numerical,minimal,alternatives:alternates,identifiability,attribution,sensitivity,sufficientCombinations,frontier,traces,nextExperiment,interpretations,nearOptimalCount:distinct.length,threshold,evaluations,subsets:subsetResults.map(s=>({keys:s.subset,error:s.best.error,objective:s.best.objective,params:s.best.params})),searchLimit:'Bounded finite-iteration search; exhaustive means all allowed subsets, not all parameter values. Sampled ranges are not statistical confidence intervals.'};
+    if(minimal.changed.includes('caRestActual'))interpretations.push(`A change in actual resting Ca is consistent with altered basal occupancy while the rate-reference Ca remains ${minimal.changed.includes('caRestReference')?'also variable':'at its control value'}.`);
+    if(minimal.changed.some(k=>['caAmplGlobal','caAmplLocal'].includes(k)))interpretations.push('A change in AP-associated Ca amplitude is sufficient within this model for part of the activity-dependent phenotype; it does not by itself prove altered Ca influx.');
+    if(minimal.changed.includes('kf2'))interpretations.push('The candidate basal LS→TS forward rate differs from control, affecting the pre-stimulation TS pool.');
+    if(minimal.changed.includes('slope2'))interpretations.push('The candidate Ca-dependent LS→TS slope differs from control, affecting activity-dependent maturation.');
+    return {version:VERSION,createdAt:new Date().toISOString(),request:r,targets,wtError,constrainedBaseline:baseline,numerical,minimal,alternatives:alternates,identifiability,attribution,sensitivity,sufficientCombinations,frontier,familyModels,traces,nextExperiment,interpretations,nearOptimalCount:distinct.length,threshold,evaluations,subsets:subsetResults.map(s=>({keys:s.subset,error:s.best.error,objective:s.best.objective,params:s.best.params})),searchLimit:'Bounded finite-iteration search; large parameter spaces use hierarchical screening, not every subset. Relative model support is a search heuristic, not biological causality. Sampled ranges are not statistical confidence intervals.'};
   }
-  g.MechanismEngine={VERSION,DEFAULT_KEYS,NAMES,QUAL,defaultBounds,extractPhenotype,compileTargets,error,coverage,subsets,validate,infer};
+  g.MechanismEngine={VERSION,DEFAULT_KEYS,FAMILIES,NAMES,QUAL,defaultBounds,extractPhenotype,compileTargets,error,coverage,subsets,validate,infer};
 })(globalThis);

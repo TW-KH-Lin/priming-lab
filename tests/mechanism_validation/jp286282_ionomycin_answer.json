@@ -1,0 +1,7 @@
+{
+  "kind": "Published answer; load only after prediction is frozen",
+  "expectedFamily": "Calcium handling",
+  "expectedDirections": {"caRestActual":"up"},
+  "controlLike": ["kf1","kb1","slope1","kf2","kb2","slope2"],
+  "published": {"caRestActual":1.3e-7,"yMax":1.16,"zMin":1.0,"fractionTsl":0.15,"kRefract":4.2}
+}
