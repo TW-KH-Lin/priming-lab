@@ -11,17 +11,23 @@ const run=()=>$('#inferenceForm').dispatchEvent(new w.Event('submit',{cancelable
 (async()=>{
  assert.equal($('#reference').value,'sciadv');assert.equal($('#lockP').checked,true);assert.equal($('#lockN').checked,true);assert.equal($('#mutantP').disabled,false);
  assert.ok($('.bound[data-key="caRestActual"]'));assert.ok($('.bound[data-key="caRestReference"]'));assert.notEqual($('.bound[data-key="caRestActual"]'),$('.bound[data-key="caRestReference"]'));
+ assert.ok($('.target[data-id="dep:t50:200"]'));assert.ok($('.target[data-id="dep:tss:200"]'));assert.ok($('.target[data-id="rec:auc4"]'));assert.ok($('.target[data-id="rec:t80"]'));
+ assert.match($('.target[data-id="ss:200"] [data-field="level"]').textContent,/Deeper/);assert.match($('.target[data-id="dep:t50:200"] [data-field="level"]').textContent,/Faster/);assert.match($('.target[data-id="rec:auc4"] [data-field="level"]').textContent,/Slower recovery/);
  run();assert.match($('#progress').textContent,/Enter independently known N_total/);assert.equal(requests,0);
  $('#lockN').checked=false;$('#lockN').dispatchEvent(new w.Event('change'));input('#mutantP',.379);input('#mutantFRP',2100);input('#frpScale',100);
  $('#familyControls [data-family="calcium"]').click();for(const key of ['kf1','kb1','slope1','kb2','slope2'])$('.bound[data-key="'+key+'"] [data-allow]').checked=false;
  input('#pulses',8);input('#traceFrequencies','200');input('#traceDelays','.1');input('#maxChanged',1);change('#searchMode','fast');input('[data-id="p1"] [data-field="level"]','strongUp');
  run();await wait();assert.match($('#progress').textContent,/Complete/);assert.equal(lastRequest.locks.pRel0,.379);assert.equal(lastRequest.locks.nSites,undefined);
  assert.equal(lastRequest.targets.find(t=>t.id==='frp').mean,2100);assert.deepEqual(lastRequest.keys,['kf2','nSites']);
+ assert.equal(lastRequest.protocol.steadyTolerance,.1);assert.equal(lastRequest.blockWeights.trainCurve,.25);assert.equal(lastRequest.blockWeights.recoveryKinetics,1);
  assert.match($('#results').textContent,/Relative model support/);assert.match($('#results').textContent,/Necessity × sufficiency/);
+ assert.match($('#results').textContent,/Train depression metrics/);assert.match($('#results').textContent,/Recovery kinetics · 0–4 s/);
  assert.ok(!$('#results').innerHTML.includes('NaN'));
  change('#inputMode','quantitative');assert.ok($('#results').classList.contains('progress-stale'));
- input('[data-id="p1"] [data-field="mean"]',1.5);input('[data-id="p1"] [data-field="uncertainty"]','sem');input('[data-id="p1"] [data-field="error"]',.1);run();await wait();
+ input('[data-id="p1"] [data-field="mean"]',1.5);input('[data-id="p1"] [data-field="uncertainty"]','sem');input('[data-id="p1"] [data-field="error"]',.1);
+ input('#trainValues','1, .7, .5, .35, .25, .2, .2, .2');input('#recoveryDataTimes','.25, .5, 1, 2, 4');input('#recoveryDataValues','.1, .25, .5, .75, .9');run();await wait();
  assert.match($('#progress').textContent,/Complete/);assert.equal(lastRequest.targets[0].error,.1);
+ assert.ok(lastRequest.targets.some(t=>t.id==='dep:t50:200'&&t.autoCalculated));assert.ok(lastRequest.targets.some(t=>t.id==='rec:auc4'&&t.autoCalculated));assert.ok(lastRequest.targets.some(t=>t.block==='trainCurve'));assert.ok(lastRequest.targets.some(t=>t.block==='recoveryCurve'));
  $('#lockN').checked=true;$('#lockN').dispatchEvent(new w.Event('change'));input('#mutantN',3500);run();await wait();assert.equal(lastRequest.locks.nSites,3500);assert.ok(!lastRequest.keys.includes('nSites'));
  input('#mutantP',2);run();assert.match($('#progress').textContent,/Invalid locked/);
  assert.equal($('#benchmarkButtons'),null);assert.equal($('#revealPublication'),null);assert.equal($('#publicationComparison'),null);
