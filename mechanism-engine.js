@@ -1,6 +1,6 @@
 (function(g){
   'use strict';
-  const C=g.PrimingCore, VERSION='48.0.0';
+  const C=g.PrimingCore, VERSION='49.0.0';
   const DEFAULT_KEYS=['kf1','kb1','slope1','kf2','kb2','slope2'];
   const FAMILIES={priming:DEFAULT_KEYS,calcium:['caRestActual','caRestReference','caAmplGlobal','caAmplLocal','caTauFast','caTauSlow','caFracSlow'],stp:['yInc','yMax','zDec','zMin','tauY','tauZ','yPower'],refractory:['fractionTsl','tauTsl','kRefract']};
   const NAMES={nSites:'Total release-site capacity N',pRel0:'Initial pFusion',kf1:'Basal k₁',kb1:'b₁',slope1:'Ca slope σ₁',kf2:'Basal k₂',kb2:'b₂',slope2:'Ca slope σ₂',caRestActual:'Actual resting Ca²⁺',caRestReference:'Rate-reference Ca²⁺',caAmplGlobal:'AP global Ca amplitude',caAmplLocal:'AP local Ca amplitude',caTauFast:'Fast Ca decay',caTauSlow:'Slow Ca decay',caFracSlow:'Slow Ca fraction',yInc:'Facilitation increment',yMax:'Maximum facilitation',zDec:'Depression decrement',zMin:'Minimum depression',tauY:'Facilitation decay',tauZ:'Depression decay',yPower:'Facilitation exponent',fractionTsl:'TSL fraction',tauTsl:'TSL lifetime',kRefract:'ERS recovery b₄'};
@@ -19,17 +19,68 @@
     const h=Math.min(p.odeStep,p.model===3?.2/p.kRefract:Infinity,p.useMultiCa?.25*p.caTauLocal:Infinity);
     if(h*(p.kf1+p.kb1+p.kf2+p.kb2+(p.slope1+p.slope2)*ca+(p.model>1?1/p.tauTsl:0)+(p.model===3?p.kRefract:0))>1.5)throw Error('Parameter bounds are too stiff for the current simulator step; narrow the ranges.');
   }
+  function computeSteadyStateDepth(train){
+    const rows=train?.rows||[],last=rows.slice(-Math.min(5,rows.length));
+    return last.length?last.reduce((sum,row)=>sum+row.releaseNorm,0)/last.length:NaN;
+  }
+  function trainPeak(rows){
+    let index=0;for(let i=1;i<rows.length;i++)if(rows[i].releaseNorm>rows[index].releaseNorm)index=i;
+    return {index,value:rows[index]?.releaseNorm??NaN};
+  }
+  function computeDepressionT50(train,frequencyHz=train?.frequency){
+    const rows=train?.rows||[],ssOverP1=computeSteadyStateDepth(train),peak=trainPeak(rows),amplitude=peak.value-ssOverP1;
+    if(rows.length<2||!(frequencyHz>0)||!(amplitude>1e-9))return {t50Dep:null,n50Dep:null,reached:false,peakPulse:rows[peak.index]?.pulse??null,peakResponse:peak.value,ssOverP1};
+    const threshold=ssOverP1+.5*amplitude,start=rows[0].time;
+    for(let i=peak.index;i<rows.length;i++)if(rows[i].releaseNorm<=threshold)return {t50Dep:rows[i].time-start,n50Dep:rows[i].pulse,reached:true,peakPulse:rows[peak.index].pulse,peakResponse:peak.value,ssOverP1};
+    return {t50Dep:null,n50Dep:null,reached:false,peakPulse:rows[peak.index].pulse,peakResponse:peak.value,ssOverP1};
+  }
+  function computeTimeToSteadyState(train,frequencyHz=train?.frequency,tolerance=.1,minConsecutive=3){
+    const rows=train?.rows||[],ssOverP1=computeSteadyStateDepth(train),peak=trainPeak(rows),amplitude=peak.value-ssOverP1;
+    if(rows.length<minConsecutive||!(frequencyHz>0)||!(amplitude>1e-9))return {tSS:null,nSS:null,reached:false,tolerance,minConsecutive};
+    const band=Math.max(Math.abs(amplitude)*tolerance,1e-9),start=rows[0].time;
+    for(let i=peak.index;i<=rows.length-minConsecutive;i++){
+      const inBand=rows.slice(i).every(row=>Math.abs(row.releaseNorm-ssOverP1)<=band);
+      if(inBand)return {tSS:rows[i].time-start,nSS:rows[i].pulse,reached:true,tolerance,minConsecutive};
+    }
+    return {tSS:null,nSS:null,reached:false,tolerance,minConsecutive};
+  }
+  function computeTrainPhenotype(train,frequencyHz=train?.frequency,tolerance=.1){
+    return {ssOverP1:computeSteadyStateDepth(train),...computeDepressionT50(train,frequencyHz),...computeTimeToSteadyState(train,frequencyHz,tolerance,3)};
+  }
+  function recoverySeries(curve,maxTime=4){
+    const points=(curve?.points||curve||[]).filter(p=>Number.isFinite(p.interval)&&Number.isFinite(p.recovered)&&p.interval>=0&&p.interval<=maxTime).map(p=>({time:p.interval,value:clamp(p.recovered,0,1)})).sort((a,b)=>a.time-b.time);
+    if(!points.length||points[0].time>0)points.unshift({time:0,value:0});
+    const all=(curve?.points||curve||[]).filter(p=>Number.isFinite(p.interval)&&Number.isFinite(p.recovered)).sort((a,b)=>a.interval-b.interval),exact=all.find(p=>p.interval===maxTime);
+    if(exact&&!points.some(p=>p.time===maxTime))points.push({time:maxTime,value:clamp(exact.recovered,0,1)});
+    if(!points.some(p=>p.time===maxTime)){
+      const before=[...all].reverse().find(p=>p.interval<maxTime),after=all.find(p=>p.interval>maxTime);
+      if(before&&after){const f=(maxTime-before.interval)/(after.interval-before.interval);points.push({time:maxTime,value:clamp(before.recovered+f*(after.recovered-before.recovered),0,1)})}
+    }
+    return points.sort((a,b)=>a.time-b.time);
+  }
+  function computeRecoveryAUC(curve,maxTime=4){
+    const points=recoverySeries(curve,maxTime);if(!points.some(p=>p.time===maxTime))return null;
+    let area=0;for(let i=1;i<points.length;i++)area+=(points[i].time-points[i-1].time)*(points[i].value+points[i-1].value)/2;return area;
+  }
+  function computeRecoveryThresholdTime(curve,threshold,maxTime=4){
+    const points=recoverySeries(curve,maxTime);for(let i=1;i<points.length;i++)if(points[i].value>=threshold){const a=points[i-1],b=points[i],span=b.value-a.value,f=span>1e-12?(threshold-a.value)/span:1;return {time:a.time+clamp(f,0,1)*(b.time-a.time),censored:false,reached:true}}
+    return {time:maxTime,censored:true,reached:false};
+  }
+  function computeRecoveryPhenotype(curve,maxTime=4){
+    const valueAt=time=>{const points=curve?.points||curve||[],exact=points.find(p=>Math.abs(p.interval-time)<1e-9);return exact?.recovered??null},t50=computeRecoveryThresholdTime(curve,.5,maxTime),t80=computeRecoveryThresholdTime(curve,.8,maxTime);
+    return {r025:valueAt(.25),r05:valueAt(.5),r1:valueAt(1),r2:valueAt(2),r4:valueAt(4),auc0to4:computeRecoveryAUC(curve,maxTime),t50:t50.time,t80:t80.time,t50Censored:t50.censored,t80Censored:t80.censored,maxTime};
+  }
   function extractPhenotype(p,protocol,ids,full=false){
-    const values={},trains={},frequencies=new Set();
+    const values={},trains={},trainMetrics={},frequencies=new Set();
     const train=f=>{if(!trains[f])trains[f]=C.simulateTrain(f,protocol.pulses,p);return trains[f]};
-    for(const id of ids){if(id.startsWith('ss:')||id.startsWith('cum:')||id.startsWith('train:'))frequencies.add(+id.split(':')[1]);if(['p1','ppr'].includes(id))frequencies.add(protocol.pprFrequency)}
+    for(const id of ids){if(id.startsWith('ss:')||id.startsWith('cum:')||id.startsWith('train:'))frequencies.add(+id.split(':')[1]);if(id.startsWith('dep:'))frequencies.add(+id.split(':')[2]);if(['p1','ppr'].includes(id))frequencies.add(protocol.pprFrequency)}
     if(full)protocol.frequencies.forEach(f=>frequencies.add(f));
-    for(const f of frequencies){const t=train(f),r=t.rows,m1=r[0].release,last=r.slice(-Math.min(5,r.length));values['ss:'+f]=last.reduce((s,x)=>s+x.release,0)/last.length/m1;values['cum:'+f]=r.reduce((s,x)=>s+x.release,0);if(f===protocol.pprFrequency){values.p1=m1;values.ppr=r[1].release/m1}}
+    for(const f of frequencies){const t=train(f),r=t.rows,m1=r[0].release,metric=computeTrainPhenotype(t,f,protocol.steadyTolerance??.1),timeBoundary=r.at(-1).time-r[0].time,pulseBoundary=r.at(-1).pulse;trainMetrics[f]=metric;values['ss:'+f]=metric.ssOverP1;values['dep:t50:'+f]=metric.t50Dep??timeBoundary;values['dep:tss:'+f]=metric.tSS??timeBoundary;values['dep:n50:'+f]=metric.n50Dep??pulseBoundary;values['dep:nss:'+f]=metric.nSS??pulseBoundary;values['cum:'+f]=r.reduce((s,x)=>s+x.release,0);if(f===protocol.pprFrequency){values.p1=m1;values.ppr=r[1].release/m1}}
     for(const id of ids)if(id.startsWith('train:')){const [,f,j,unit]=id.split(':'),r=train(+f).rows[+j-1];values[id]=r?(unit==='raw'?r.release:r.releaseNorm):NaN}
-    const delays=[...new Set(ids.filter(x=>x.startsWith('r:')).map(x=>+x.slice(2)).concat(full?protocol.delays:[]))];
-    let recovery=null;if(delays.length){recovery=C.simulateRecovery(train(protocol.recoveryFrequency),delays,p,'last5');for(const r of recovery.points)values['r:'+r.interval]=r.recovered}
+    const needsRecoverySummary=ids.some(x=>x.startsWith('rec:')),standardRecovery=needsRecoverySummary?[.25,.5,1,2,4]:[],delays=[...new Set(ids.filter(x=>x.startsWith('r:')).map(x=>+x.slice(2)).concat(standardRecovery,full?protocol.delays:[]))];
+    let recovery=null,recoveryMetrics=null;if(delays.length){recovery=C.simulateRecovery(train(protocol.recoveryFrequency),delays,p,'last5');for(const row of recovery.points)values['r:'+row.interval]=row.recovered;recoveryMetrics=computeRecoveryPhenotype(recovery,4);values['rec:auc4']=recoveryMetrics.auc0to4;values['rec:t50']=recoveryMetrics.t50;values['rec:t80']=recoveryMetrics.t80}
     const resting=C.steadyState(p);values.restTS=resting.ts/p.nSites;values.frp=resting.ls+resting.ts;values.ts=resting.ts;values.ls=resting.ls;values.es=resting.es;values['ca:rest']=p.caRestActual;values['ca:ap_global']=p.caAmplGlobal;values['ca:ap_local']=p.caAmplLocal;
-    return {values,resting, ...(full?{trains,recovery}: {})};
+    return {values,resting,trainMetrics,recoveryMetrics, ...(full?{trains,recovery}: {})};
   }
   function compileTargets(targets,wt,qualRanges=QUAL){
     return targets.filter(t=>t.weight>0&&t.kind!=='unknown').map(t=>{
@@ -50,21 +101,24 @@
         }else scale=Math.max(Math.abs(mean),Math.abs(ref),1e-12)*.1;
         low=high=mean;
       }
-      return {...t,low,high,scale};
+      return {...t,low,high,scale,block:t.block||targetBlock(t.id)};
     });
   }
-  function error(values,targets){
-    let loss=0,weights=0;const rows=targets.map(t=>{
+  function targetBlock(id){if(id==='ppr')return'ppr';if(id.startsWith('ss:'))return'trainDepth';if(id.startsWith('dep:'))return'trainKinetics';if(id.startsWith('train:'))return'trainCurve';if(id.startsWith('r:')||id.startsWith('rec:'))return'recoveryKinetics';if(id.startsWith('ca:'))return'calcium';return'release'}
+  function error(values,targets,blockWeights={}){
+    const groups=new Map();const rows=targets.map(t=>{
       const s=values[t.id],d=!Number.isFinite(s)?Infinity:s<t.low?s-t.low:s>t.high?s-t.high:0,residual=d/t.scale;
-      const contribution=t.weight*residual*residual;loss+=contribution;weights+=t.weight;
+      const contribution=t.weight*residual*residual,block=t.block||targetBlock(t.id),group=groups.get(block)||{loss:0,weight:0};group.loss+=contribution;group.weight+=t.weight;groups.set(block,group);
       return {id:t.id,simulated:s,targetLow:t.low,targetHigh:Number.isFinite(t.high)?t.high:null,scale:t.scale,residual,contribution,met:Number.isFinite(residual)&&(t.kind==='qualitative'?d===0:Math.abs(residual)<=1)};
-    });return {value:weights?loss/weights:Infinity,rows};
+    });let loss=0,weights=0;for(const [block,group]of groups){const w=blockWeights[block]??(['trainCurve','recoveryCurve'].includes(block)?.25:1);if(w>0){loss+=w*group.loss/Math.max(group.weight,1e-12);weights+=w}}
+    return {value:weights?loss/weights:Infinity,rows,blocks:Object.fromEntries([...groups].map(([block,group])=>[block,{error:group.loss/Math.max(group.weight,1e-12),weight:blockWeights[block]??(['trainCurve','recoveryCurve'].includes(block)?.25:1)}]))};
   }
   const countChanged=(p,wt,keys)=>keys.filter(k=>Math.abs(p[k]-wt[k])>Math.max(Math.abs(wt[k])*.01,1e-12));
   function complexity(p,wt,keys){const changed=countChanged(p,wt,keys);return {changed,change:keys.reduce((s,k)=>s+Math.abs(Math.log(Math.max(p[k],1e-12)/Math.max(wt[k],1e-12))),0),count:changed.length}}
   function validate(r){
     if(!r.reference||!r.targets?.length)throw Error('Add at least one measured phenotype.');
     const p=r.protocol;if(!p||!(p.pulses>=2&&p.pulses<=200&&Number.isInteger(p.pulses)))throw Error('Stimuli must be an integer from 2 to 200.');
+    if(p.steadyTolerance!==undefined&&!(Number.isFinite(p.steadyTolerance)&&p.steadyTolerance>=.01&&p.steadyTolerance<=.5))throw Error('Steady-state tolerance must be 1–50%.');
     if(!Array.isArray(p.frequencies)||!p.frequencies.length||!Array.isArray(p.delays))throw Error('Choose at least one trace frequency and a valid delay list.');
     if(![...p.frequencies,p.pprFrequency,p.recoveryFrequency].every(f=>Number.isFinite(f)&&f>=.5&&f<=333))throw Error('Frequencies must be between 0.5 and 333 Hz.');
     if(!p.delays.every(t=>Number.isFinite(t)&&t>0&&t<=16))throw Error('Recovery delays must be positive and at most 16 s.');
@@ -79,9 +133,10 @@
     for(const k of r.keys){const extreme={...r.reference,...r.locks,[k]:r.bounds[k][k.startsWith('tau')||k.startsWith('caTau')?0:1]};safeParameters(extreme)}
     if(!['fast','standard','exhaustive'].includes(r.settings.mode)||!(r.settings.maxChanged>=1&&r.settings.maxChanged<=r.keys.length)||!Number.isInteger(r.settings.maxChanged))throw Error('Invalid search settings.');
     if(![r.settings.lambdaChange,r.settings.lambdaCount].every(v=>Number.isFinite(v)&&v>=0)||!(r.settings.nearTolerance>=0&&r.settings.nearTolerance<=1))throw Error('Invalid complexity/tolerance setting.');
+    if(r.blockWeights&&Object.values(r.blockWeights).some(v=>!Number.isFinite(v)||v<0))throw Error('Phenotype block weights must be non-negative.');
     if(r.settings.iterations!==undefined&&!(Number.isInteger(r.settings.iterations)&&r.settings.iterations>=1&&r.settings.iterations<=200))throw Error('Invalid iteration budget.');
     if(r.settings.seed!==undefined&&!(Number.isInteger(r.settings.seed)&&r.settings.seed>=0&&r.settings.seed<=4294967295))throw Error('Seed must be an integer between 0 and 4294967295.');
-    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS','frp','ts','ls','es','ca:rest','ca:ap_global','ca:ap_local'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id==='frp'&&t.kind==='quantitative'&&!(t.mean>0))throw Error('Measured FRP must be positive');if(['ts','ls','es'].includes(t.id)&&t.kind==='quantitative'&&!(t.mean>=0))throw Error('Pool target must be non-negative');if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
+    for(const t of r.targets){if(!Number.isFinite(t.weight)||t.weight<0)throw Error('Weights must be non-negative');if(!['p1','ppr','restTS','frp','ts','ls','es','ca:rest','ca:ap_global','ca:ap_local','rec:auc4','rec:t50','rec:t80'].includes(t.id)&&! /^(ss|cum|r):[\d.]+$/.test(t.id)&&!/^dep:(t50|tss|n50|nss):[\d.]+$/.test(t.id)&&!/^train:[\d.]+:\d+:(norm|raw)$/.test(t.id))throw Error('Invalid readout: '+t.id);if(t.id==='frp'&&t.kind==='quantitative'&&!(t.mean>0))throw Error('Measured FRP must be positive');if(['ts','ls','es'].includes(t.id)&&t.kind==='quantitative'&&!(t.mean>=0))throw Error('Pool target must be non-negative');if(t.id.startsWith('r:')&&!(+t.id.slice(2)>0&&+t.id.slice(2)<=16))throw Error('Invalid recovery delay');if(/^(ss|cum|train):/.test(t.id)&&!(+t.id.split(':')[1]>=.5&&+t.id.split(':')[1]<=333))throw Error('Invalid readout frequency');if(t.id.startsWith('dep:')&&!(+t.id.split(':')[2]>=.5&&+t.id.split(':')[2]<=333))throw Error('Invalid depression frequency');if(t.id.startsWith('train:')&&!(+t.id.split(':')[2]>=1&&+t.id.split(':')[2]<=p.pulses))throw Error('Train exceeds stimulus count')}
   }
   function coverage(e,wtError){return wtError<1e-12?null:clamp(1-e/wtError,0,1)}
   function optimizeSubset(subset,seedParams,context,budget,startCount){
@@ -113,11 +168,11 @@
     validate(r);r=clone(r);const wt={...r.reference},fixed={...wt,...r.locks},ids=[...new Set(r.targets.filter(t=>t.weight>0&&t.kind!=='unknown').map(t=>t.id))];
     const wtSim=extractPhenotype(wt,r.protocol,ids),targets=compileTargets(r.targets,wtSim.values,r.qualitativeRanges||QUAL);
     if(!targets.length)throw Error('All measurements are missing or zero-weight.');
-    const wtError=error(wtSim.values,targets).value,cache=new Map(),pool=[],subsetResults=[];let evaluations=0,seed=(r.settings.seed??2026)>>>0;
+    const wtError=error(wtSim.values,targets,r.blockWeights).value,cache=new Map(),pool=[],subsetResults=[];let evaluations=0,seed=(r.settings.seed??2026)>>>0;
     const rng=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296};
     const evaluate=params=>{
       const key=r.keys.map(k=>params[k].toPrecision(12)).join('|');if(cache.has(key))return cache.get(key);
-      const sim=extractPhenotype(params,r.protocol,ids),fit=error(sim.values,targets),c=complexity(params,wt,r.keys),s={params:{...params},values:sim.values,error:fit.value,rows:fit.rows,...c};
+      const sim=extractPhenotype(params,r.protocol,ids),fit=error(sim.values,targets,r.blockWeights),c=complexity(params,wt,r.keys),s={params:{...params},values:sim.values,error:fit.value,rows:fit.rows,blockErrors:fit.blocks,...c};
       s.objective=s.error+r.settings.lambdaChange*c.change+r.settings.lambdaCount*c.count;s.coverage=coverage(s.error,wtError);
       if(!Number.isFinite(s.error))s.objective=Infinity;
       cache.set(key,s);pool.push(s);evaluations++;return s;
@@ -196,5 +251,5 @@
     if(minimal.changed.includes('slope2'))interpretations.push('The candidate Ca-dependent LS→TS slope differs from control, affecting activity-dependent maturation.');
     return {version:VERSION,createdAt:new Date().toISOString(),request:r,targets,wtError,constrainedBaseline:baseline,numerical,minimal,alternatives:alternates,identifiability,attribution,sensitivity,sufficientCombinations,frontier,familyModels,traces,nextExperiment,interpretations,nearOptimalCount:distinct.length,threshold,evaluations,subsets:subsetResults.map(s=>({keys:s.subset,error:s.best.error,objective:s.best.objective,params:s.best.params})),searchLimit:'Bounded finite-iteration search; large parameter spaces use hierarchical screening, not every subset. Relative model support is a search heuristic, not biological causality. Sampled ranges are not statistical confidence intervals.'};
   }
-  g.MechanismEngine={VERSION,DEFAULT_KEYS,FAMILIES,NAMES,QUAL,defaultBounds,extractPhenotype,compileTargets,error,coverage,subsets,validate,infer};
+  g.MechanismEngine={VERSION,DEFAULT_KEYS,FAMILIES,NAMES,QUAL,defaultBounds,computeSteadyStateDepth,computeDepressionT50,computeTimeToSteadyState,computeTrainPhenotype,computeRecoveryAUC,computeRecoveryThresholdTime,computeRecoveryPhenotype,extractPhenotype,compileTargets,error,coverage,subsets,validate,infer};
 })(globalThis);
